@@ -81,8 +81,10 @@
   }
 
   /* ===== Grid layout ===== */
-  .grid{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;}
-  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+  /* minmax(0, …) ไม่งั้นคอลัมน์ขยายตามความกว้างขั้นต่ำของตารางข้างใน ทำให้หน้าล้นแนวนอนบนมือถือ
+     (ตารางอยู่ใน wrapper overflow-x:auto อยู่แล้ว จะเลื่อนในกรอบแทน) */
+  .grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;}
+  @media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr);}}
 
   .panel{
     background:var(--ink-panel);
@@ -186,13 +188,14 @@
   .empty-row td{color:var(--paper-dim);text-align:center;padding:22px 8px;font-family:var(--thai);}
 
   /* ===== Summary cards ===== */
-  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
+  .summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:6px;}
   .stat{
     background:var(--ink-panel-2);border:1px solid var(--ink-line);border-radius:5px;
     padding:12px 14px;
   }
   .stat .label{font-size:10.5px;color:var(--paper-dim);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;}
-  .stat .value{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:4px;}
+  .stat .value{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:4px;overflow-wrap:anywhere;}
+  @media (max-width:480px){.stat .value{font-size:16px;}}
 
   /* ===== Chart ===== */
   .chart-wrap{position:relative;height:220px;}
@@ -202,7 +205,10 @@
   .holdings-list{max-height:260px;overflow:auto;}
 
   /* ===== Mood Journal ===== */
-  .mood-form{display:grid;grid-template-columns:auto 1fr auto;gap:10px;margin-bottom:14px;align-items:end;}
+  /* เรียงเป็นแนวตั้ง: อารมณ์ → โน้ต (เต็มความกว้าง) → ปุ่ม — แบบเดิม 3 คอลัมน์ทำให้ช่องโน้ตแคบมากในคอลัมน์ขวาของจอใหญ่ */
+  .mood-form{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px;}
+  .mood-form textarea{min-height:76px;}
+  .mood-actions{display:flex;gap:8px;justify-content:flex-end;}
   .mood-picker{display:flex;gap:6px;}
   .mood-btn{
     width:38px;height:38px;border-radius:50%;border:1px solid var(--ink-line);
@@ -271,8 +277,16 @@
     display:block;font-size:10px;color:var(--paper-dim);
     margin-bottom:3px;font-family:var(--mono);letter-spacing:.5px;
   }
-  .note-cell{max-width:220px;font-family:var(--thai);font-size:12px;color:var(--paper-dim);}
-  .note-cell .note-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .trades-table th, .trades-table td{padding-left:6px;padding-right:6px;}
+  .trades-table{font-size:12px;}
+  .trades-table td:first-child{white-space:nowrap;}
+  /* คอลัมน์ปุ่มแก้ไข/ลบค้างขอบขวาไว้ แม้ตารางกว้างจนต้องเลื่อนแนวนอน (มือถือ/จอแคบ) */
+  .trades-table th:last-child, .trades-table td:last-child{position:sticky;right:0;background:var(--ink-panel);}
+  .trades-table tr:hover td:last-child{background:var(--ink-panel-2);}
+  /* แถวโน้ตใต้รายการ: แท็ก + อารมณ์ + เหตุผล */
+  .trades-table tr.has-note td{border-bottom:none;}
+  .trades-table tr.note-row:hover{background:transparent;}
+  .trades-table tr.note-row td{padding-top:0;padding-bottom:8px;font-family:var(--thai);font-size:12px;color:var(--paper-dim);white-space:normal;overflow-wrap:anywhere;}
   .chip{
     display:inline-block;font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:10px;
     border:1px solid var(--gold-dim);color:var(--gold);margin-right:4px;
@@ -283,10 +297,14 @@
   @media (max-width:700px){.div-form{grid-template-columns:1fr 1fr;}}
 
   /* ===== สถิติ / ตารางแยกกลุ่ม ===== */
-  .stat-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .stat-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
   .stat-mini{background:var(--ink-panel-2);border:1px solid var(--ink-line);border-radius:5px;padding:9px 12px;}
   .stat-mini .label{font-size:10px;color:var(--paper-dim);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;}
-  .stat-mini .value{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:3px;}
+  .stat-mini .value{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:3px;overflow-wrap:anywhere;}
+  /* ตารางในคอลัมน์ขวา (แคบ) — บีบช่องไฟให้ครบทุกคอลัมน์โดยไม่ต้องเลื่อนในกรอบ */
+  .group-table th, .group-table td, .holdings-list th, .holdings-list td{padding-left:5px;padding-right:5px;}
+  .group-table table, .holdings-list table{font-size:12px;}
+  .holdings-list .mp-input{width:84px;}
   .group-head{display:flex;gap:10px;align-items:end;margin-bottom:10px;}
   .group-head select{
     background:var(--ink-panel-2);border:1px solid var(--ink-line);color:var(--paper);
@@ -330,6 +348,7 @@
     <div class="ledger-actions">
       <button class="btn ghost small" id="exportBtn">⬇ ส่งออกข้อมูล (JSON)</button>
       <button class="btn ghost small" id="importBtn">⬆ นำเข้าข้อมูล (JSON)</button>
+      <button class="btn ghost small" id="csvBtn" title="ส่งออกรายการซื้อขาย + ปันผล เป็นไฟล์ .csv เปิดใน Excel ได้ (ไม่ใช่ไฟล์สำรอง — นำเข้ากลับไม่ได้)">⬇ ส่งออก CSV (Excel)</button>
       <input type="file" id="importFile" accept="application/json" style="display:none;">
     </div>
     <div class="backup-info" id="backupInfo"></div>
@@ -430,16 +449,16 @@
         </div>
 
         <div style="overflow-x:auto;">
-        <table>
+        <table class="trades-table">
           <thead>
             <tr>
               <th>วันที่</th><th>หุ้น</th><th>ประเภท</th>
               <th class="num">จำนวน</th><th class="num">ราคา</th>
-              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th class="num">กำไร/ขาดทุน</th><th>กลยุทธ์ / โน้ต</th><th></th>
+              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th class="num">กำไร/ขาดทุน</th><th></th>
             </tr>
           </thead>
           <tbody id="tradeBody">
-            <tr class="empty-row"><td colspan="10">กำลังโหลดข้อมูล…</td></tr>
+            <tr class="empty-row"><td colspan="9">กำลังโหลดข้อมูล…</td></tr>
           </tbody>
         </table>
         </div>
@@ -574,10 +593,10 @@
         <div class="group-table" style="overflow-x:auto;">
         <table>
           <thead>
-            <tr><th id="groupKeyHead">หุ้น</th><th class="num">ไม้ขาย</th><th class="num">ชนะ</th><th class="num">Realized</th><th class="num">ปันผล</th><th class="num">รวม</th></tr>
+            <tr><th id="groupKeyHead">หุ้น</th><th class="num">ไม้ขาย (ชนะ)</th><th class="num">Realized</th><th class="num">ปันผล</th><th class="num">รวม</th></tr>
           </thead>
           <tbody id="groupBody">
-            <tr class="empty-row"><td colspan="6">ยังไม่มีข้อมูล</td></tr>
+            <tr class="empty-row"><td colspan="5">ยังไม่มีข้อมูล</td></tr>
           </tbody>
         </table>
         </div>
@@ -601,7 +620,10 @@
             <label style="display:block;font-size:10px;color:var(--paper-dim);font-family:var(--mono);margin-bottom:5px;">บันทึกมุมมองตลาด</label>
             <textarea id="moodNote" placeholder="วันนี้ตลาดเป็นอย่างไร คิดอย่างไร…"></textarea>
           </div>
-          <button class="btn" id="addMoodBtn">+ บันทึก</button>
+          <div class="mood-actions">
+            <button class="btn ghost" id="cancelMoodBtn" style="display:none;">ยกเลิก</button>
+            <button class="btn" id="addMoodBtn">+ บันทึก</button>
+          </div>
         </div>
         <div class="mood-entries" id="moodEntries">
           <div class="loading">กำลังโหลด…</div>
@@ -822,17 +844,58 @@
     }
   }
 
-  function exportBackup(){
-    const payload = {version:2, exportedAt:new Date().toISOString(), trades, moods, dividends, settings, method, marketPrices};
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  function downloadBlob(blob, filename){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `trading-journal-backup-${todayStr()}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  // ===== Export CSV (เปิดใน Excel) =====
+  // ข้อความที่ขึ้นต้นด้วย = + - @ จะถูก Excel ตีเป็นสูตร (CSV injection) — ใส่ ' นำหน้าเฉพาะช่องข้อความ (ตัวเลขไม่แตะ)
+  function csvText(v){
+    let s = String(v == null ? '' : v);
+    if(/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  const csvNum = v => (v == null || v === '') ? '' : String(Number(Number(v).toFixed(6)));
+
+  function exportCsv(){
+    if(trades.length + dividends.length === 0){
+      alert('ยังไม่มีข้อมูลให้ส่งออก');
+      return;
+    }
+    const emoLabel = {'1':'ตื่นตระหนก','2':'กังวล','3':'เฉยๆ','4':'มั่นใจ','5':'คึกคัก/โลภ'};
+    const ledger = computeLedger();   // กำไร/ขาดทุนต่อรายการขายตามวิธี FIFO/AVG ที่เลือกอยู่ตอนนี้
+    const rank = s => s === 'buy' ? 0 : 1;
+    const rows = [
+      ...trades.map(t=>({date:t.date, k:rank(t.side), id:t.id, cells:[
+        t.date, t.side==='buy' ? 'ซื้อ' : 'ขาย', csvText(t.symbol),
+        csvNum(t.qty), csvNum(t.price), csvNum(t.fee||0), csvNum(t.qty*t.price), '',
+        t.side==='sell' && ledger.pnlByTrade[t.id] ? csvNum(ledger.pnlByTrade[t.id].pnl) : '',
+        csvText(t.tag||''), emoLabel[t.emotion]||'', csvText(t.note||'')
+      ]})),
+      ...dividends.map(d=>({date:d.date, k:2, id:d.id, cells:[
+        d.date, 'ปันผล', csvText(d.symbol), '', '', '', csvNum(d.gross), csvNum(d.tax||0),
+        csvNum(d.gross - (d.tax||0)), '', '', ''
+      ]}))
+    ].sort((a,b)=> a.date.localeCompare(b.date) || a.k - b.k || a.id.localeCompare(b.id));
+
+    const header = ['วันที่','ประเภท','หุ้น','จำนวน','ราคา','ค่าธรรมเนียม','มูลค่า','ภาษีหัก ณ ที่จ่าย',
+                    'กำไร/ขาดทุน (ปันผล=สุทธิ)','กลยุทธ์','อารมณ์','โน้ต'];
+    const lines = [header.join(','), ...rows.map(r=>r.cells.join(','))];
+    // BOM ให้ Excel อ่านภาษาไทยเป็น UTF-8 ถูกต้อง · ขึ้นบรรทัดใหม่แบบ CRLF
+    const blob = new Blob(['﻿' + lines.join('\r\n') + '\r\n'], {type:'text/csv;charset=utf-8'});
+    downloadBlob(blob, `trading-journal-${todayStr()}.csv`);
+  }
+
+  function exportBackup(){
+    const payload = {version:2, exportedAt:new Date().toISOString(), trades, moods, dividends, settings, method, marketPrices};
+    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'}), `trading-journal-backup-${todayStr()}.json`);
     // บันทึกว่าสำรองแล้ว (ผู้ใช้อาจยกเลิกการดาวน์โหลดได้ แต่เบราว์เซอร์ไม่บอก จึงถือว่าสำรองตอนกดปุ่ม)
     meta = {lastBackup:new Date().toISOString(), changes:0};
     safeSet(STORE_META, meta);
@@ -980,6 +1043,7 @@
   // ===== Export / Import JSON =====
   $('exportBtn').addEventListener('click', exportBackup);
   $('backupNowBtn').addEventListener('click', exportBackup);
+  $('csvBtn').addEventListener('click', exportCsv);
 
   $('importBtn').addEventListener('click', ()=> $('importFile').click());
 
@@ -1040,6 +1104,7 @@
         });
         fillSettingsForm();
         cancelEdit();
+        cancelMoodEdit();
         filters = {symbol:'', from:'', to:''};
         $('filterFrom').value=''; $('filterTo').value='';
         render();
@@ -1134,12 +1199,27 @@
 
   // ===== Mood CRUD =====
   let selectedMood = null;
+  let editingMoodId = null;   // id ของบันทึกอารมณ์ที่กำลังแก้ไข (null = โหมดเพิ่มใหม่)
+
+  function setMoodPicker(v){
+    selectedMood = v;
+    document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active', v != null && b.dataset.v === v));
+  }
+
   document.getElementById('moodPicker').addEventListener('click', (e)=>{
     const btn = e.target.closest('.mood-btn');
     if(!btn) return;
-    selectedMood = btn.dataset.v;
-    document.querySelectorAll('.mood-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    setMoodPicker(btn.dataset.v);
   });
+
+  function cancelMoodEdit(){
+    editingMoodId = null;
+    $('moodNote').value = '';
+    setMoodPicker(null);
+    $('addMoodBtn').textContent = '+ บันทึก';
+    $('cancelMoodBtn').style.display = 'none';
+  }
+  $('cancelMoodBtn').addEventListener('click', cancelMoodEdit);
 
   $('addMoodBtn').addEventListener('click', ()=>{
     const note = $('moodNote').value.trim();
@@ -1147,20 +1227,45 @@
       alert('เลือกอารมณ์ตลาด หรือเขียนบันทึกอย่างน้อยหนึ่งอย่าง');
       return;
     }
-    moods.unshift({id:uid(), date:new Date().toISOString(), mood:selectedMood||'3', note});
+    if(editingMoodId){
+      // แก้ไข: เปลี่ยนเฉพาะอารมณ์/โน้ต คงวันเวลาที่บันทึกครั้งแรกไว้
+      const m = moods.find(x=>x.id===editingMoodId);
+      if(m){ m.mood = selectedMood || '3'; m.note = note; }
+    } else {
+      moods.unshift({id:uid(), date:new Date().toISOString(), mood:selectedMood||'3', note});
+    }
     safeSet(STORE_MOODS, moods);
     markChanged();
-    $('moodNote').value='';
-    selectedMood = null;
-    document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active'));
+    cancelMoodEdit();
     render();
   });
 
   document.getElementById('moodEntries').addEventListener('click', (e)=>{
+    const editBtn = e.target.closest('button[data-editmood]');
+    if(editBtn){
+      const m = moods.find(x=>x.id===editBtn.dataset.editmood);
+      if(!m) return;
+      editingMoodId = m.id;
+      setMoodPicker(moodEmoji[m.mood] ? String(m.mood) : '3');
+      $('moodNote').value = m.note || '';
+      $('addMoodBtn').textContent = '💾 บันทึกการแก้ไข';
+      $('cancelMoodBtn').style.display = 'inline-block';
+      $('moodNote').scrollIntoView({block:'center', behavior:'smooth'});
+      $('moodNote').focus({preventScroll:true});
+      return;
+    }
+
     const btn = e.target.closest('button[data-delmood]');
     if(!btn) return;
     const id = btn.dataset.delmood;
-    moods = moods.filter(m=>m.id!==id);
+    const m = moods.find(x=>x.id===id);
+    if(!m) return;
+    const d = new Date(m.date);
+    const when = isNaN(d) ? m.date : d.toLocaleString('th-TH', {dateStyle:'medium', timeStyle:'short'});
+    const preview = (m.note || '').length > 60 ? m.note.slice(0,60) + '…' : (m.note || '');
+    if(!confirm(`ลบบันทึกอารมณ์ตลาดนี้?\n${when}  ${moodEmoji[m.mood]||''}${preview ? '\n' + preview : ''}`)) return;
+    if(editingMoodId === id) cancelMoodEdit();
+    moods = moods.filter(x=>x.id!==id);
     safeSet(STORE_MOODS, moods);
     markChanged();
     render();
@@ -1314,9 +1419,9 @@
     const filteredTrades = trades.filter(matchesFilter);
     const tbody = $('tradeBody');
     if(trades.length===0){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">ยังไม่มีรายการซื้อขาย — เริ่มบันทึกรายการแรกได้เลย</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">ยังไม่มีรายการซื้อขาย — เริ่มบันทึกรายการแรกได้เลย</td></tr>';
     } else if(filteredTrades.length===0){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">ไม่มีรายการที่ตรงกับตัวกรอง</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">ไม่มีรายการที่ตรงกับตัวกรอง</td></tr>';
     } else {
       const sorted = [...filteredTrades].sort((a,b)=> b.date.localeCompare(a.date));
       tbody.innerHTML = sorted.map(t=>{
@@ -1327,10 +1432,11 @@
           ? `<td class="num ${r.pnl>=0?'pos':'neg'}" ${r.short ? 'title="ขายเกินจำนวนที่ถือ — กำไรสูงเกินจริง"' : ''}>${fmtMoney(r.pnl)}${r.short ? ' ⚠' : ''}</td>`
           : '<td class="num" style="color:var(--paper-dim);">—</td>';
         const emo = t.emotion && moodEmoji[t.emotion] ? moodEmoji[t.emotion] + ' ' : '';
-        const noteCell = (t.tag || t.note || emo)
-          ? `<td class="note-cell">${t.tag ? `<span class="chip">${escapeHtml(t.tag)}</span>` : ''}${emo}<span class="note-text" title="${escapeHtml(t.note||'')}">${escapeHtml(t.note||'')}</span></td>`
-          : '<td class="note-cell"></td>';
-        return `<tr>
+        // แท็ก/อารมณ์/โน้ต แสดงเป็นแถวเล็กใต้รายการ (ไม่เพิ่มคอลัมน์ ตารางจะได้ไม่กว้างจนต้องเลื่อน)
+        const noteRow = (t.tag || t.note || emo)
+          ? `<tr class="note-row"><td colspan="9">${t.tag ? `<span class="chip">${escapeHtml(t.tag)}</span>` : ''}${emo}${escapeHtml(t.note||'')}</td></tr>`
+          : '';
+        return `<tr class="${noteRow ? 'has-note' : ''}">
           <td>${escapeHtml(t.date)}</td>
           <td>${escapeHtml(t.symbol)}</td>
           <td class="${t.side==='buy'?'side-buy':'side-sell'}">${t.side==='buy'?'ซื้อ':'ขาย'}</td>
@@ -1339,12 +1445,11 @@
           <td class="num">${fmtMoney(t.fee||0)}</td>
           <td class="num">${fmtMoney(value)}</td>
           ${pnlCell}
-          ${noteCell}
           <td style="white-space:nowrap;">
             <button class="icon-btn" data-edit="${escapeHtml(t.id)}" title="แก้ไข">✎</button>
             <button class="icon-btn" data-del="${escapeHtml(t.id)}" title="ลบ">✕</button>
           </td>
-        </tr>`;
+        </tr>${noteRow}`;
       }).join('');
     }
 
@@ -1429,10 +1534,13 @@
         return `<div class="mood-entry">
           <div class="em">${moodEmoji[m.mood]||'😐'}</div>
           <div class="body">
-            <div class="date">${dateStr}</div>
+            <div class="date">${escapeHtml(dateStr)}</div>
             ${m.note ? `<div class="note">${escapeHtml(m.note)}</div>` : ''}
           </div>
-          <button class="icon-btn" data-delmood="${m.id}" title="ลบ">✕</button>
+          <div style="white-space:nowrap;">
+            <button class="icon-btn" data-editmood="${escapeHtml(m.id)}" title="แก้ไข">✎</button>
+            <button class="icon-btn" data-delmood="${escapeHtml(m.id)}" title="ลบ">✕</button>
+          </div>
         </div>`;
       }).join('');
     }
@@ -1504,13 +1612,12 @@
       .sort((a,b)=> b.total - a.total);
     const body = $('groupBody');
     if(rows.length === 0){
-      body.innerHTML = '<tr class="empty-row"><td colspan="6">ยังไม่มีข้อมูล</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">ยังไม่มีข้อมูล</td></tr>';
       return;
     }
     body.innerHTML = rows.map(r=>`<tr>
       <td>${escapeHtml(r.k)}</td>
-      <td class="num">${r.n}</td>
-      <td class="num">${r.n ? Math.round(r.wins/r.n*100) + '%' : '—'}</td>
+      <td class="num">${r.n} (${r.n ? Math.round(r.wins/r.n*100) + '%' : '—'})</td>
       <td class="num ${r.realized>=0?'pos':'neg'}">${fmtMoney(r.realized)}</td>
       <td class="num">${byTag ? '—' : fmtMoney(r.div)}</td>
       <td class="num ${r.total>=0?'pos':'neg'}">${fmtMoney(r.total)}</td>
