@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trading-journal-v4';
+const CACHE_NAME = 'trading-journal-v5';
 const CORE_ASSETS = [
   './',
   './index.html',

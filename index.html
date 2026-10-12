@@ -281,8 +281,9 @@
   .trades-table{font-size:12px;}
   .trades-table td:first-child{white-space:nowrap;}
   /* คอลัมน์ปุ่มแก้ไข/ลบค้างขอบขวาไว้ แม้ตารางกว้างจนต้องเลื่อนแนวนอน (มือถือ/จอแคบ) */
-  .trades-table th:last-child, .trades-table td:last-child{position:sticky;right:0;background:var(--ink-panel);}
-  .trades-table tr:hover td:last-child{background:var(--ink-panel-2);}
+  /* ผูกกับคลาส .actions (คอลัมน์ปุ่มแก้ไข/ลบ) โดยตรง — ไม่ใช้ :last-child เพราะแถวโน้ต/แถวว่างมี td เดียวที่ก็เป็นตัวสุดท้ายเหมือนกัน */
+  .trades-table .actions{position:sticky;right:0;background:var(--ink-panel);}
+  .trades-table tr:hover .actions{background:var(--ink-panel-2);}
   /* แถวโน้ตใต้รายการ: แท็ก + อารมณ์ + เหตุผล */
   .trades-table tr.has-note td{border-bottom:none;}
   .trades-table tr.note-row:hover{background:transparent;}
@@ -454,7 +455,7 @@
             <tr>
               <th>วันที่</th><th>หุ้น</th><th>ประเภท</th>
               <th class="num">จำนวน</th><th class="num">ราคา</th>
-              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th class="num">กำไร/ขาดทุน</th><th></th>
+              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th class="num">กำไร/ขาดทุน</th><th class="actions"></th>
             </tr>
           </thead>
           <tbody id="tradeBody">
@@ -740,6 +741,18 @@
   }
 
   // ===== Settings (ค่าธรรมเนียม / ภาษีปันผล) =====
+  // แท็กสะกดตัวพิมพ์เล็ก/ใหญ่ต่างกันให้เป็นแท็กเดียวกัน (ใช้ตัวสะกดที่พบก่อน) — ตารางแยกกลุ่ม/datalist จะได้ไม่แตกเป็นหลายกลุ่ม
+  function makeTagCanon(knownTags){
+    const m = new Map();
+    knownTags.forEach(t=>{ if(t && !m.has(t.toLowerCase())) m.set(t.toLowerCase(), t); });
+    return tag=>{
+      if(!tag) return '';
+      const k = tag.toLowerCase();
+      if(!m.has(k)) m.set(k, tag);
+      return m.get(k);
+    };
+  }
+
   function numOr(v, dflt){
     const n = parseFloat(v);
     return (isFinite(n) && n >= 0) ? n : dflt;
@@ -760,6 +773,7 @@
     $('s-min').value = settings.minFee;
     $('s-vat').value = settings.vat;
     $('s-divtax').value = settings.divTax;
+    updateFeeHint();   // placeholder/ข้อความช่วยของช่องค่าธรรมเนียมต้องตรงกับค่าที่โหลดมา (ไม่ใช่ต้องรอให้พิมพ์ก่อน)
   }
   function readSettingsForm(){
     settings = sanitizeSettings({
@@ -770,7 +784,8 @@
       divTax: $('s-divtax').value
     });
     safeSet(STORE_SETTINGS, settings);
-    updateFeeHint();
+    // เขียนค่าที่ถูกเก็บจริงกลับลงฟอร์ม — ช่องว่าง/ค่าติดลบจะถูกแทนด้วยค่าเริ่มต้น ผู้ใช้ต้องเห็นว่าค่าอะไรถูกใช้
+    fillSettingsForm();
   }
   ['s-auto','s-rate','s-min','s-vat','s-divtax'].forEach(id=>{
     $(id).addEventListener('change', readSettingsForm);
@@ -802,8 +817,16 @@
       ? `ค่าธรรมเนียมอัตโนมัติ ≈ ${fmtMoney(fee)} (ถ้าไม่กรอกช่องค่าธรรมเนียม จะใช้ค่านี้)`
       : 'เปิดคิดค่าธรรมเนียมอัตโนมัติอยู่ — กรอกจำนวนและราคา ระบบจะคำนวณให้ถ้าเว้นช่องค่าธรรมเนียมไว้';
   }
-  $('f-qty').addEventListener('input', updateFeeHint);
-  $('f-price').addEventListener('input', updateFeeHint);
+  // โหมดแก้ไขรายการที่ค่าธรรมเนียมระบบคิดให้: เปลี่ยนจำนวน/ราคาแล้วคิดค่าธรรมเนียมใหม่ลงช่องให้ (ผู้ใช้ยังแก้ทับได้)
+  let editingFeeAuto = false;
+  function syncAutoFeeOnEdit(){
+    if(!editingId || !editingFeeAuto || !settings.autoFee) return;
+    const fee = autoFeeFor(parseFloat($('f-qty').value), parseFloat($('f-price').value));
+    if(fee > 0) $('f-fee').value = fee.toFixed(2);
+  }
+  $('f-qty').addEventListener('input', ()=>{ syncAutoFeeOnEdit(); updateFeeHint(); });
+  $('f-price').addEventListener('input', ()=>{ syncAutoFeeOnEdit(); updateFeeHint(); });
+  $('f-fee').addEventListener('input', ()=>{ editingFeeAuto = false; });   // พิมพ์ค่าเอง = เลิกถือเป็นค่าอัตโนมัติ
 
   // ===== Backup tracking (สำรองล่าสุด + จำนวนการเปลี่ยนแปลงตั้งแต่นั้น) =====
   function sanitizeMeta(m){
@@ -870,17 +893,17 @@
       return;
     }
     const emoLabel = {'1':'ตื่นตระหนก','2':'กังวล','3':'เฉยๆ','4':'มั่นใจ','5':'คึกคัก/โลภ'};
-    const ledger = computeLedger();   // กำไร/ขาดทุนต่อรายการขายตามวิธี FIFO/AVG ที่เลือกอยู่ตอนนี้
+    const ledger = lastLedger || computeLedger();   // กำไร/ขาดทุนต่อรายการขายตามวิธี FIFO/AVG ที่เลือกอยู่ตอนนี้ (render() เก็บผลล่าสุดไว้ทุกครั้งที่ข้อมูล/วิธีเปลี่ยน)
     const rank = s => s === 'buy' ? 0 : 1;
     const rows = [
       ...trades.map(t=>({date:t.date, k:rank(t.side), id:t.id, cells:[
-        t.date, t.side==='buy' ? 'ซื้อ' : 'ขาย', csvText(t.symbol),
+        csvText(t.date), t.side==='buy' ? 'ซื้อ' : 'ขาย', csvText(t.symbol),
         csvNum(t.qty), csvNum(t.price), csvNum(t.fee||0), csvNum(t.qty*t.price), '',
         t.side==='sell' && ledger.pnlByTrade[t.id] ? csvNum(ledger.pnlByTrade[t.id].pnl) : '',
         csvText(t.tag||''), emoLabel[t.emotion]||'', csvText(t.note||'')
       ]})),
       ...dividends.map(d=>({date:d.date, k:2, id:d.id, cells:[
-        d.date, 'ปันผล', csvText(d.symbol), '', '', '', csvNum(d.gross), csvNum(d.tax||0),
+        csvText(d.date), 'ปันผล', csvText(d.symbol), '', '', '', csvNum(d.gross), csvNum(d.tax||0),
         csvNum(d.gross - (d.tax||0)), '', '', ''
       ]}))
     ].sort((a,b)=> a.date.localeCompare(b.date) || a.k - b.k || a.id.localeCompare(b.id));
@@ -923,7 +946,8 @@
     const side = $('f-side').value;
     const qty = parseFloat($('f-qty').value);
     const price = parseFloat($('f-price').value);
-    const tag = $('f-tag').value.trim();
+    // ใช้ตัวสะกดแท็กที่เคยมีอยู่แล้ว (ไม่สนตัวพิมพ์เล็ก/ใหญ่) เพื่อให้ตารางแยกกลุ่มไม่แตกเป็นหลายแถว
+    const tag = makeTagCanon(trades.map(t=>t.tag))($('f-tag').value.trim());
     const emotion = $('f-emotion').value;
     const note = $('f-note').value.trim();
 
@@ -934,16 +958,22 @@
 
     // ช่องค่าธรรมเนียมว่าง = ให้ระบบคิดให้ (ถ้าเปิดไว้ในตั้งค่า) · กรอก 0 = ไม่มีค่าธรรมเนียม
     const feeRaw = $('f-fee').value.trim();
+    // feeAuto = จำไว้ว่าค่านี้ระบบคิดให้ (ช่องว่าง+เปิดอัตโนมัติ หรือแก้ไขรายการเดิมที่เป็นอัตโนมัติโดยไม่พิมพ์ทับ)
+    const feeAuto = feeRaw === '' ? settings.autoFee : (editingId ? editingFeeAuto : false);
     const fee = feeRaw === ''
-      ? (settings.autoFee ? autoFeeFor(qty, price) : 0)
+      ? (feeAuto ? autoFeeFor(qty, price) : 0)
       : (parseFloat(feeRaw) || 0);
+    if(fee < 0){
+      alert('ค่าธรรมเนียมต้องไม่ติดลบ');
+      return;
+    }
 
     if(editingId){
       const t = trades.find(x=>x.id===editingId);
-      if(t) Object.assign(t, {date, symbol, side, qty, price, fee, tag, emotion, note});
+      if(t) Object.assign(t, {date, symbol, side, qty, price, fee, feeAuto, tag, emotion, note});
       cancelEdit();
     } else {
-      trades.push({id:uid(), date, symbol, side, qty, price, fee, tag, emotion, note});
+      trades.push({id:uid(), date, symbol, side, qty, price, fee, feeAuto, tag, emotion, note});
     }
     trades.sort((a,b)=> a.date.localeCompare(b.date));
     safeSet(STORE_TRADES, trades);
@@ -953,6 +983,7 @@
   });
 
   function clearTradeForm(){
+    editingFeeAuto = false;
     ['f-symbol','f-qty','f-price','f-fee','f-tag','f-note'].forEach(id=>{ $(id).value=''; });
     $('f-emotion').value = '';
     updateFeeHint();
@@ -967,6 +998,9 @@
     $('f-side').value = t.side;
     $('f-qty').value = t.qty;
     $('f-price').value = t.price;
+    // แสดงค่าธรรมเนียมที่บันทึกไว้เสมอ (แก้แค่โน้ต/แท็กต้องไม่ทำให้ค่าในอดีตเปลี่ยนตามตั้งค่าปัจจุบัน)
+    // ถ้าค่านั้นระบบคิดให้ (feeAuto) และผู้ใช้เปลี่ยนจำนวน/ราคา → ช่องจะคิดใหม่ให้เอง (ดู syncAutoFeeOnEdit) จนกว่าผู้ใช้จะพิมพ์ค่าเอง
+    editingFeeAuto = !!t.feeAuto;
     $('f-fee').value = t.fee || 0;
     $('f-tag').value = t.tag || '';
     $('f-emotion').value = t.emotion || '';
@@ -1016,8 +1050,8 @@
     }
     // เว้นช่องภาษีไว้ = หักตามอัตราในตั้งค่า (ค่าเริ่มต้น 10%) · กรอก 0 = ไม่มีภาษี
     const tax = taxRaw === '' ? round2(gross * settings.divTax / 100) : (parseFloat(taxRaw) || 0);
-    if(tax > gross){
-      alert('ภาษีหัก ณ ที่จ่ายมากกว่าจำนวนเงินปันผล');
+    if(tax < 0 || tax > gross){
+      alert(tax < 0 ? 'ภาษีหัก ณ ที่จ่ายต้องไม่ติดลบ' : 'ภาษีหัก ณ ที่จ่ายมากกว่าจำนวนเงินปันผล');
       return;
     }
     dividends.push({id:uid(), date, symbol, gross, tax});
@@ -1056,36 +1090,76 @@
         const data = JSON.parse(reader.result);
         if(!data || !Array.isArray(data.trades)) throw new Error('ไม่พบข้อมูลรายการซื้อขายในไฟล์');
 
-        if(!confirm(`นำเข้าข้อมูลนี้จะแทนที่ข้อมูลปัจจุบันทั้งหมด\n(ปัจจุบันมี ${trades.length} รายการซื้อขาย, ${dividends.length} ปันผล, ${moods.length} บันทึกอารมณ์)\nต้องการดำเนินการต่อหรือไม่?`)) return;
-
+        // ตรวจ+แปลงข้อมูลทั้งหมดลงตัวแปรชั่วคราวก่อน — ข้อมูลปัจจุบัน (ทั้งในหน่วยความจำและที่เก็บ) ยังไม่ถูกแตะ
+        // จนกว่าผ่านการตรวจครบและผู้ใช้กดยืนยัน (ถ้าไฟล์เสียกลางทางจะไม่เหลือข้อมูลครึ่งๆ กลางๆ)
         // ไฟล์สำรองรุ่นเก่า (version 1) ไม่มี tag/emotion/note/dividends/settings — ใส่ค่าว่างให้
-        trades = data.trades.map(t=>({
-          id: t.id || uid(),
-          date: t.date || todayStr(),
+        // วันที่ต้องเป็น YYYY-MM-DD ที่มีอยู่จริง (ระบบเรียง/กราฟ/CSV พึ่งรูปแบบนี้) รายการที่วันที่เสีย/ค่าติดลบจะถูกข้ามและแจ้งจำนวน
+        // Date.parse ยอมรับวันที่ที่ไม่มีจริง (เช่น 2026-02-30 → ปัดเป็น 2 มี.ค.) จึงต้องแปลงกลับแล้วได้ข้อความเดิมด้วย
+        const validDate = s => {
+          if(typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+          const ms = Date.parse(s + 'T00:00:00Z');
+          return !isNaN(ms) && new Date(ms).toISOString().slice(0,10) === s;
+        };
+        const isObj = x => !!x && typeof x === 'object';
+        // id ซ้ำในไฟล์ (เช่น ไฟล์ที่รวมสองชุด) จะทำให้แก้/ลบ/กำไรต่อรายการชนกัน — ออก id ใหม่ให้ตัวที่ซ้ำ
+        const idMaker = ()=>{ const seen = new Set(); return raw => { let id = String(raw || ''); if(!id || seen.has(id)) id = uid(); seen.add(id); return id; }; };
+        const canon = makeTagCanon([]);
+        let skipped = 0;
+
+        const tradeId = idMaker();
+        const newTrades = data.trades.map(t=> isObj(t) ? ({
+          id: tradeId(t.id),
+          date: t.date,
           symbol: String(t.symbol||'').trim().toUpperCase(),
           side: t.side === 'sell' ? 'sell' : 'buy',
           qty: Number(t.qty) || 0,
           price: Number(t.price) || 0,
           fee: Number(t.fee) || 0,
-          tag: String(t.tag || '').trim().slice(0,30),
+          feeAuto: !!t.feeAuto,
+          tag: canon(String(t.tag || '').trim().slice(0,30)),
           emotion: ['1','2','3','4','5'].includes(String(t.emotion)) ? String(t.emotion) : '',
           note: String(t.note || '').slice(0,300)
-        })).filter(t=>t.symbol && t.qty>0);
-        dividends = (Array.isArray(data.dividends) ? data.dividends : []).map(d=>({
-          id: d.id || uid(),
-          date: d.date || todayStr(),
+        }) : null).filter(t=>{
+          const ok = t && t.symbol && t.qty>0 && t.price>=0 && t.fee>=0 && validDate(t.date);
+          if(!ok) skipped++;
+          return ok;
+        });
+        newTrades.sort((a,b)=> a.date.localeCompare(b.date));   // เสถียร: วันเดียวกันคงลำดับในไฟล์ (ledger ใช้ลำดับนี้เป็นลำดับที่บันทึก)
+
+        const divId = idMaker();
+        const newDivs = (Array.isArray(data.dividends) ? data.dividends : []).map(d=> isObj(d) ? ({
+          id: divId(d.id),
+          date: d.date,
           symbol: String(d.symbol||'').trim().toUpperCase(),
           gross: Number(d.gross) || 0,
-          tax: Math.min(Number(d.tax) || 0, Number(d.gross) || 0)
-        })).filter(d=>d.symbol && d.gross>0);
-        dividends.sort((a,b)=> a.date.localeCompare(b.date));
-        settings = sanitizeSettings(data.settings);
-        moods = Array.isArray(data.moods) ? data.moods.map(m=>({
-          id: m.id || uid(),
+          tax: Math.max(0, Math.min(Number(d.tax) || 0, Number(d.gross) || 0))
+        }) : null).filter(d=>{
+          const ok = d && d.symbol && d.gross>0 && validDate(d.date);
+          if(!ok) skipped++;
+          return ok;
+        });
+        newDivs.sort((a,b)=> a.date.localeCompare(b.date));
+
+        const moodId = idMaker();
+        const newMoods = Array.isArray(data.moods) ? data.moods.filter(isObj).map(m=>({
+          id: moodId(m.id),
           date: m.date || new Date().toISOString(),
           mood: String(m.mood || '3'),
           note: String(m.note || '')
         })) : [];
+
+        // ไฟล์มีรายการแต่ผ่านตรวจไม่เหลือเลย = ไฟล์เสีย/รูปแบบผิด — ห้ามเขียนทับข้อมูลเดิมด้วยความว่างเปล่า
+        if(data.trades.length > 0 && newTrades.length === 0){
+          throw new Error(`ไม่พบรายการซื้อขายที่ถูกต้องในไฟล์ (ข้าม ${skipped} รายการ) — ไม่ได้เปลี่ยนแปลงข้อมูลเดิม`);
+        }
+
+        if(!confirm(`นำเข้าข้อมูลนี้จะแทนที่ข้อมูลปัจจุบันทั้งหมด\nไฟล์ที่นำเข้า: ${newTrades.length} รายการซื้อขาย, ${newDivs.length} ปันผล, ${newMoods.length} บันทึกอารมณ์${skipped ? ` (ข้าม ${skipped} รายการที่ข้อมูลไม่ถูกต้อง)` : ''}\nปัจจุบัน: ${trades.length} รายการซื้อขาย, ${dividends.length} ปันผล, ${moods.length} บันทึกอารมณ์\nต้องการดำเนินการต่อหรือไม่?`)) return;
+
+        trades = newTrades;
+        dividends = newDivs;
+        moods = newMoods;
+        // ไฟล์ที่ไม่มี settings (เช่นสำรองรุ่น version 1) → คงค่าตั้งค่าปัจจุบันไว้ ไม่รีเซ็ตเป็นค่าเริ่มต้น
+        if(data.settings && typeof data.settings === 'object') settings = sanitizeSettings(data.settings);
         method = data.method === 'AVG' ? 'AVG' : 'FIFO';
         marketPrices = (data.marketPrices && typeof data.marketPrices === 'object') ? data.marketPrices : {};
 
@@ -1108,7 +1182,7 @@
         filters = {symbol:'', from:'', to:''};
         $('filterFrom').value=''; $('filterTo').value='';
         render();
-        alert('นำเข้าข้อมูลสำเร็จ');
+        alert('นำเข้าข้อมูลสำเร็จ' + (skipped ? `\n(ข้าม ${skipped} รายการที่ข้อมูลไม่ถูกต้อง — วันที่ไม่ใช่รูปแบบ YYYY-MM-DD หรือจำนวน/ราคา/ค่าธรรมเนียมผิดปกติ)` : ''));
       }catch(err){
         alert('ไม่สามารถนำเข้าข้อมูลได้: ' + err.message);
       } finally {
@@ -1278,16 +1352,20 @@
 
   function computeLedger(){
     // returns { realizedEvents, holdings, shortfalls, pnlByTrade }
-    const bySymbol = {}; // symbol -> array of open lots {qty, price(รวมค่าธรรมเนียมต่อหุ้นแล้ว), day(เลขวันตั้งแต่ epoch ของวันซื้อ), tag}
+    // ออบเจ็กต์ที่คีย์มาจากข้อมูลผู้ใช้ (แท็ก/id/สัญลักษณ์) ใช้ Object.create(null) กันชื่ออย่าง constructor / __proto__ ชนกับ prototype
+    const bySymbol = Object.create(null); // symbol -> array of open lots {qty, price(รวมค่าธรรมเนียมต่อหุ้นแล้ว), day(เลขวันตั้งแต่ epoch ของวันซื้อ), tag}
     const realizedEvents = []; // {id, date, pnl, symbol, qty, days, tag, short} — คงลำดับตามที่ประมวลผล (เรียงตามวันที่) ไว้ให้ filter/กราฟใช้ต่อ
     const shortfalls = [];     // รายการขายที่หาไม้ซื้อมารองรับไม่ครบ
-    const pnlByTrade = {};     // trade id (รายการขาย) -> {pnl, short}
+    const pnlByTrade = Object.create(null);     // trade id (รายการขาย) -> {pnl, short}
 
-    // วันเดียวกันให้ "ซื้อ" ประมวลผลก่อน "ขาย" เสมอ — ไม่งั้นถ้าลงรายการขายก่อนซื้อ (เทรดเดย์/ลงย้อนหลัง)
-    // จะขึ้นเตือนขายเกินจำนวนที่ถือ และกำไรเพี้ยนทั้งที่ข้อมูลถูกต้อง
-    const sideRank = s => s === 'buy' ? 0 : 1;
-    const sorted = [...trades].sort((a,b)=>
-      a.date.localeCompare(b.date) || sideRank(a.side) - sideRank(b.side) || a.id.localeCompare(b.id));
+    // ข้อมูลมีแค่ "วันที่" ไม่มีเวลา จึงเรียงรายการในวันเดียวกันตามลำดับที่บันทึก = ตำแหน่งในอาร์เรย์ trades
+    // (บันทึกใหม่ต่อท้าย + sort ตามวันที่แบบเสถียร, แก้ไขคงตำแหน่งเดิม, นำเข้าคงลำดับในไฟล์) — ไม่ใช้ id เพราะ id จากไฟล์เก่า/แก้มือไม่เรียงตามเวลา
+    // แต่ถ้ารายการขายใดขายเกินจำนวนที่ถืออยู่ ณ ตอนนั้น และยังมีรายการซื้อตามมาในวันเดียวกัน (เช่น ลงขายก่อนซื้อ)
+    // จะเลื่อนเฉพาะรายการขายนั้นไปทำหลังซื้อ — ไม่งั้นขึ้นเตือนขายเกินและกำไรเพี้ยนทั้งที่ข้อมูลถูกต้อง
+    // (ขายแล้วซื้อกลับวันเดียวกันขณะถืออยู่แล้ว ยังคงลำดับตามที่บันทึก ต้นทุน AVG จึงไม่ปนกับไม้ที่ซื้อทีหลัง)
+    const byEntry = trades.map((t,i)=>({t,i}))
+      .sort((a,b)=> a.t.date.localeCompare(b.t.date) || a.i - b.i)
+      .map(x=>x.t);
 
     // แท็กที่มีจำนวนหุ้นรวมมากสุดในกอง (ไม่นับแท็กว่าง) — ใช้ตอนยุบไม้แบบ AVG และตอนอนุมานแท็กของรายการขาย
     const dominantTag = (qtyByTag)=>{
@@ -1297,7 +1375,7 @@
     };
     const dayNum = s => Math.floor(Date.parse(s + 'T00:00:00Z') / 86400000);
 
-    for(const t of sorted){
+    const processTrade = (t)=>{
       const lots = bySymbol[t.symbol] = bySymbol[t.symbol] || [];
       const fee = Number(t.fee) || 0;
       const feePerShare = t.qty>0 ? fee / t.qty : 0;
@@ -1313,7 +1391,7 @@
           const c = lots.reduce((s,l)=>s+l.qty*l.price,0);
           const dq = lots.reduce((s,l)=>s+(isFinite(l.day) ? l.qty : 0),0);
           const dsum = lots.reduce((s,l)=>s+(isFinite(l.day) ? l.qty*l.day : 0),0);
-          const qtyByTag = {};
+          const qtyByTag = Object.create(null);
           lots.forEach(l=>{ qtyByTag[l.tag] = (qtyByTag[l.tag]||0) + l.qty; });
           lots.length = 0;
           // วันซื้อของกองรวม = วันซื้อเฉลี่ยถ่วงน้ำหนักตามจำนวนหุ้น (ใช้คำนวณระยะเวลาถือ)
@@ -1327,7 +1405,7 @@
         let costRemoved = 0;
         const sellDay = dayNum(t.date);
         let heldQty = 0, heldDaySum = 0;   // ไว้หาระยะเวลาถือเฉลี่ยของรายการขายนี้
-        const qtyByTag = {};
+        const qtyByTag = Object.create(null);
 
         while(qtyToSell > EPS && lots.length > 0){
           const lot = lots[0];
@@ -1355,6 +1433,34 @@
         });
         pnlByTrade[t.id] = {pnl, short:isShort};
       }
+    };
+
+    // ประมวลผลทีละวัน → ทีละหุ้น (หุ้นแต่ละตัวมีกองไม้แยกกัน ลำดับข้ามหุ้นไม่มีผลต่อต้นทุน)
+    for(let i = 0; i < byEntry.length; ){
+      let j = i;
+      while(j < byEntry.length && byEntry[j].date === byEntry[i].date) j++;
+      const perSymbol = new Map();
+      for(const t of byEntry.slice(i, j)){
+        if(!perSymbol.has(t.symbol)) perSymbol.set(t.symbol, []);
+        perSymbol.get(t.symbol).push(t);
+      }
+      for(const [sym, list] of perSymbol){
+        const held = () => (bySymbol[sym] || []).reduce((s,l)=>s+l.qty, 0);
+        const deferred = [];   // รายการขายที่ของในมือยังไม่พอ รอรายการซื้อที่ตามมาในวันเดียวกัน
+        const flush = ()=>{
+          for(let k = 0; k < deferred.length; ){
+            if(deferred[k].qty <= held() + EPS) processTrade(deferred.splice(k, 1)[0]);
+            else k++;
+          }
+        };
+        list.forEach((t, idx)=>{
+          if(t.side === 'buy'){ processTrade(t); flush(); }
+          else if(t.qty > held() + EPS && list.slice(idx + 1).some(x=>x.side === 'buy')) deferred.push(t);
+          else processTrade(t);
+        });
+        deferred.forEach(processTrade);   // ที่ยังไม่พอจริงๆ → processTrade จะบันทึกเป็นขายเกิน (เตือนผู้ใช้)
+      }
+      i = j;
     }
 
     // holdings summary
@@ -1445,7 +1551,7 @@
           <td class="num">${fmtMoney(t.fee||0)}</td>
           <td class="num">${fmtMoney(value)}</td>
           ${pnlCell}
-          <td style="white-space:nowrap;">
+          <td class="actions" style="white-space:nowrap;">
             <button class="icon-btn" data-edit="${escapeHtml(t.id)}" title="แก้ไข">✎</button>
             <button class="icon-btn" data-del="${escapeHtml(t.id)}" title="ลบ">✕</button>
           </td>
@@ -1599,16 +1705,23 @@
     const byTag = groupMode === 'tag';
     $('groupKeyHead').textContent = byTag ? 'กลยุทธ์' : 'หุ้น';
     $('groupHint').hidden = !byTag;
-    const groups = {};
-    const g = k => groups[k] = groups[k] || {n:0, wins:0, realized:0, div:0};
+    // Map (ไม่ใช่ object) เพราะแท็กเป็นข้อความอิสระ — ชื่อเช่น constructor ต้องไม่ชนกับ prototype
+    // แท็กจับกลุ่มแบบไม่สนตัวพิมพ์เล็ก/ใหญ่ (Breakout = breakout) แสดงตามตัวสะกดที่พบก่อน
+    const groups = new Map();
+    const NO_TAG = '\u0000none';   // คีย์ภายในของ "ไม่ระบุ" — แยกจากแท็กที่ผู้ใช้พิมพ์ว่า "ไม่ระบุ" เอง
+    const g = (label, key)=>{
+      key = key != null ? key : (byTag ? label.toLowerCase() : label);
+      if(!groups.has(key)) groups.set(key, {k:label, n:0, wins:0, realized:0, div:0});
+      return groups.get(key);
+    };
     for(const e of events){
-      const x = g(byTag ? (e.tag || 'ไม่ระบุ') : e.symbol);
+      const x = byTag ? (e.tag ? g(e.tag) : g('ไม่ระบุ', NO_TAG)) : g(e.symbol);
       x.n++; if(e.pnl > 0) x.wins++; x.realized += e.pnl;
     }
     if(!byTag){
       for(const d of divs){ g(d.symbol).div += divNet(d); }
     }
-    const rows = Object.keys(groups).map(k=>({k, ...groups[k], total: groups[k].realized + groups[k].div}))
+    const rows = [...groups.values()].map(x=>({...x, total: x.realized + x.div}))
       .sort((a,b)=> b.total - a.total);
     const body = $('groupBody');
     if(rows.length === 0){
@@ -1629,7 +1742,8 @@
   function populateDatalists(){
     const syms = [...new Set([...trades.map(t=>t.symbol), ...dividends.map(d=>d.symbol)])].sort();
     $('symList').innerHTML = syms.map(s=>`<option value="${escapeHtml(s)}">`).join('');
-    const tags = [...new Set([...trades.map(t=>t.tag).filter(Boolean), ...DEFAULT_TAGS])];
+    const canon = makeTagCanon(trades.map(t=>t.tag).filter(Boolean));   // ใช้ตัวสะกดที่ผู้ใช้เคยใช้ก่อนค่าเริ่มต้น
+    const tags = [...new Set([...trades.map(t=>t.tag).filter(Boolean), ...DEFAULT_TAGS].map(canon))];
     $('tagList').innerHTML = tags.map(s=>`<option value="${escapeHtml(s)}">`).join('');
   }
 
