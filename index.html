@@ -180,7 +180,7 @@
   tbody tr:hover{background:var(--ink-panel-2);}
   .side-buy{color:var(--debit);font-weight:600;}
   .side-sell{color:var(--credit);font-weight:600;}
-  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .pos{color:var(--credit);}
   .neg{color:var(--debit);}
   .empty-row td{color:var(--paper-dim);text-align:center;padding:22px 8px;font-family:var(--thai);}
@@ -248,6 +248,74 @@
   .warn b{color:var(--debit);}
   .warn .detail{font-family:var(--mono);font-size:11.5px;color:var(--paper-dim);margin-top:3px;}
 
+  /* ===== แถวกรอกเพิ่ม (กลยุทธ์ / อารมณ์ / โน้ต) ===== */
+  .entry-extra{
+    display:grid;
+    grid-template-columns:1fr .8fr 2.6fr;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  @media (max-width:700px){.entry-extra{grid-template-columns:1fr 1fr;} .entry-extra .span-all{grid-column:1 / -1;}}
+  .entry-extra input, .entry-extra select, .div-form input, .settings-grid input[type=number]{
+    background:var(--ink-panel-2);
+    border:1px solid var(--ink-line);
+    color:var(--paper);
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:8px 8px;
+    border-radius:4px;
+    width:100%;
+  }
+  .entry-extra input:focus, .entry-extra select:focus, .div-form input:focus, .settings-grid input:focus{outline:1px solid var(--gold);}
+  .entry-extra label, .div-form label, .settings-grid label.lbl, .group-head label{
+    display:block;font-size:10px;color:var(--paper-dim);
+    margin-bottom:3px;font-family:var(--mono);letter-spacing:.5px;
+  }
+  .note-cell{max-width:220px;font-family:var(--thai);font-size:12px;color:var(--paper-dim);}
+  .note-cell .note-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chip{
+    display:inline-block;font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:10px;
+    border:1px solid var(--gold-dim);color:var(--gold);margin-right:4px;
+  }
+
+  /* ===== ปันผล ===== */
+  .div-form{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:14px;}
+  @media (max-width:700px){.div-form{grid-template-columns:1fr 1fr;}}
+
+  /* ===== สถิติ / ตารางแยกกลุ่ม ===== */
+  .stat-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .stat-mini{background:var(--ink-panel-2);border:1px solid var(--ink-line);border-radius:5px;padding:9px 12px;}
+  .stat-mini .label{font-size:10px;color:var(--paper-dim);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;}
+  .stat-mini .value{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:3px;}
+  .group-head{display:flex;gap:10px;align-items:end;margin-bottom:10px;}
+  .group-head select{
+    background:var(--ink-panel-2);border:1px solid var(--ink-line);color:var(--paper);
+    font-family:var(--mono);font-size:12.5px;padding:7px 8px;border-radius:4px;
+  }
+  .group-table{max-height:260px;overflow:auto;}
+
+  /* ===== สำรองข้อมูล + ตั้งค่า ===== */
+  .backup-info{margin:10px 0 0 18px;font-family:var(--mono);font-size:11px;color:var(--paper-dim);position:relative;z-index:1;}
+  .backup-info.overdue{color:#e7c26a;}
+  .backup-info b{color:var(--paper);font-weight:500;}
+  .notice{
+    background:rgba(201,162,75,0.10);border:1px solid rgba(201,162,75,0.5);border-radius:5px;
+    padding:10px 12px;font-size:12.5px;line-height:1.6;color:#e7c26a;margin:0 0 18px;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  }
+  .notice[hidden]{display:none;}   /* display:flex ข้างบนชนะ [hidden] ของเบราว์เซอร์ ต้องสั่งซ่อนเอง */
+  .notice span{flex:1;min-width:200px;}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .settings-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--paper);}
+  details.panel > summary{
+    cursor:pointer;font-family:var(--mono);font-size:14px;letter-spacing:1px;color:var(--gold);
+    text-transform:uppercase;list-style:none;
+  }
+  details.panel > summary::-webkit-details-marker{display:none;}
+  details.panel > summary::before{content:"▸ ";}
+  details.panel[open] > summary::before{content:"▾ ";}
+  .hint{font-size:11.5px;color:var(--paper-dim);margin-top:8px;line-height:1.6;}
+
   .loading{color:var(--paper-dim);font-family:var(--mono);font-size:12px;padding:10px 0;}
   .foot-note{color:var(--paper-dim);font-size:11px;text-align:center;margin-top:18px;font-family:var(--mono);}
 </style>
@@ -264,7 +332,16 @@
       <button class="btn ghost small" id="importBtn">⬆ นำเข้าข้อมูล (JSON)</button>
       <input type="file" id="importFile" accept="application/json" style="display:none;">
     </div>
+    <div class="backup-info" id="backupInfo"></div>
   </div>
+
+  <div class="notice" id="backupNotice" hidden>
+    <span id="backupNoticeText"></span>
+    <button class="btn small" id="backupNowBtn">⬇ สำรองข้อมูลตอนนี้</button>
+  </div>
+
+  <datalist id="symList"></datalist>
+  <datalist id="tagList"></datalist>
 
   <div class="grid">
     <!-- LEFT COLUMN -->
@@ -286,7 +363,7 @@
           </div>
           <div>
             <label>สัญลักษณ์หุ้น</label>
-            <input type="text" id="f-symbol" placeholder="เช่น PTT">
+            <input type="text" id="f-symbol" placeholder="เช่น PTT" list="symList" autocomplete="off">
           </div>
           <div>
             <label>ประเภท</label>
@@ -313,6 +390,29 @@
           </div>
         </div>
 
+        <div class="entry-extra">
+          <div>
+            <label>กลยุทธ์ / แท็ก</label>
+            <input type="text" id="f-tag" placeholder="เช่น Breakout" list="tagList" autocomplete="off" maxlength="30">
+          </div>
+          <div>
+            <label>อารมณ์ตอนตัดสินใจ</label>
+            <select id="f-emotion">
+              <option value="">—</option>
+              <option value="1">😱 ตื่นตระหนก</option>
+              <option value="2">😟 กังวล</option>
+              <option value="3">😐 เฉยๆ</option>
+              <option value="4">🙂 มั่นใจ</option>
+              <option value="5">🤑 คึกคัก/โลภ</option>
+            </select>
+          </div>
+          <div class="span-all">
+            <label>เหตุผลที่ซื้อ/ขาย (โน้ต)</label>
+            <input type="text" id="f-note" placeholder="เช่น ทะลุแนวต้าน วอลุ่มเข้า / ตัดขาดทุนตามแผน" maxlength="300">
+          </div>
+        </div>
+        <div class="hint" id="feeHint" hidden></div>
+
         <div class="filter-bar">
           <div>
             <label>กรองหุ้น</label>
@@ -335,18 +435,51 @@
             <tr>
               <th>วันที่</th><th>หุ้น</th><th>ประเภท</th>
               <th class="num">จำนวน</th><th class="num">ราคา</th>
-              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th></th>
+              <th class="num">ค่าธรรมเนียม</th><th class="num">มูลค่า</th><th class="num">กำไร/ขาดทุน</th><th>กลยุทธ์ / โน้ต</th><th></th>
             </tr>
           </thead>
           <tbody id="tradeBody">
-            <tr class="empty-row"><td colspan="8">กำลังโหลดข้อมูล…</td></tr>
+            <tr class="empty-row"><td colspan="10">กำลังโหลดข้อมูล…</td></tr>
           </tbody>
         </table>
         </div>
       </div>
 
       <div class="panel">
-        <h2>กราฟกำไรขาดทุนสะสม (Realized P&amp;L Timeline)</h2>
+        <h2>บันทึกปันผล (Dividends)</h2>
+        <div class="div-form">
+          <div>
+            <label>วันที่รับ</label>
+            <input type="date" id="d-date">
+          </div>
+          <div>
+            <label>สัญลักษณ์หุ้น</label>
+            <input type="text" id="d-symbol" placeholder="เช่น PTT" list="symList" autocomplete="off">
+          </div>
+          <div>
+            <label>ปันผลก่อนหักภาษี (บาท)</label>
+            <input type="number" id="d-gross" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div>
+            <label>ภาษีหัก ณ ที่จ่าย (บาท)</label>
+            <input type="number" id="d-tax" min="0" step="0.01" placeholder="อัตโนมัติ">
+          </div>
+          <div style="display:flex;align-items:end;"><button class="btn" id="addDivBtn">+ บันทึก</button></div>
+        </div>
+        <div style="overflow-x:auto;" class="group-table">
+        <table>
+          <thead>
+            <tr><th>วันที่</th><th>หุ้น</th><th class="num">ก่อนภาษี</th><th class="num">ภาษี</th><th class="num">สุทธิ</th><th></th></tr>
+          </thead>
+          <tbody id="divBody">
+            <tr class="empty-row"><td colspan="6">ยังไม่มีบันทึกปันผล</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>กราฟกำไรสะสม (Realized + ปันผล)</h2>
         <div class="chart-wrap">
           <canvas id="plChart"></canvas>
         </div>
@@ -379,6 +512,14 @@
             <div class="value" id="statFees">฿0.00</div>
           </div>
           <div class="stat">
+            <div class="label">ปันผลรับสุทธิ</div>
+            <div class="value" id="statDiv">฿0.00</div>
+          </div>
+          <div class="stat">
+            <div class="label">กำไรรวม (Realized + ปันผล)</div>
+            <div class="value" id="statTotal">฿0.00</div>
+          </div>
+          <div class="stat">
             <div class="label">จำนวนรายการทั้งหมด</div>
             <div class="value" id="statTrades">0</div>
           </div>
@@ -406,6 +547,44 @@
       </div>
 
       <div class="panel">
+        <h2>สถิติการเทรด (Trade Stats)</h2>
+        <div class="stat-mini-grid">
+          <div class="stat-mini"><div class="label">กำไรเฉลี่ยตอนชนะ</div><div class="value" id="stAvgWin">—</div></div>
+          <div class="stat-mini"><div class="label">ขาดทุนเฉลี่ยตอนแพ้</div><div class="value" id="stAvgLoss">—</div></div>
+          <div class="stat-mini"><div class="label">Profit Factor</div><div class="value" id="stPF">—</div></div>
+          <div class="stat-mini"><div class="label">ชนะ / แพ้ (ไม้)</div><div class="value" id="stWL">—</div></div>
+          <div class="stat-mini"><div class="label">แพ้ติดกันสูงสุด</div><div class="value" id="stStreak">—</div></div>
+          <div class="stat-mini"><div class="label">Max Drawdown</div><div class="value" id="stDD">—</div></div>
+          <div class="stat-mini" style="grid-column:1 / -1;"><div class="label">ระยะเวลาถือเฉลี่ย (ถ่วงตามจำนวนหุ้น)</div><div class="value" id="stHold">—</div></div>
+        </div>
+        <div class="hint">นับ 1 ไม้ = 1 รายการขาย · Profit Factor = กำไรรวมของไม้ที่ชนะ ÷ ขาดทุนรวมของไม้ที่แพ้ · Max Drawdown วัดจากกราฟกำไรสะสม (รวมปันผล)</div>
+      </div>
+
+      <div class="panel">
+        <h2>กำไรแยกกลุ่ม</h2>
+        <div class="group-head">
+          <div>
+            <label>แยกตาม</label>
+            <select id="groupMode">
+              <option value="symbol">รายหุ้น</option>
+              <option value="tag">กลยุทธ์ / แท็ก</option>
+            </select>
+          </div>
+        </div>
+        <div class="group-table" style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr><th id="groupKeyHead">หุ้น</th><th class="num">ไม้ขาย</th><th class="num">ชนะ</th><th class="num">Realized</th><th class="num">ปันผล</th><th class="num">รวม</th></tr>
+          </thead>
+          <tbody id="groupBody">
+            <tr class="empty-row"><td colspan="6">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="hint" id="groupHint" hidden>แท็กของรายการขายจะดึงจากแท็กของไม้ซื้อที่ถูกตัดต้นทุน ถ้ารายการขายนั้นไม่ได้ใส่แท็กเอง · ปันผลไม่มีแท็กจึงไม่นับในมุมมองนี้</div>
+      </div>
+
+      <div class="panel">
         <h2>Market Mood Journal</h2>
         <div class="mood-form">
           <div>
@@ -428,6 +607,20 @@
           <div class="loading">กำลังโหลด…</div>
         </div>
       </div>
+
+      <details class="panel" id="settingsPanel">
+        <summary>ตั้งค่าค่าธรรมเนียม</summary>
+        <div class="settings-grid">
+          <label class="settings-check" style="grid-column:1 / -1;">
+            <input type="checkbox" id="s-auto"> คิดค่าธรรมเนียมอัตโนมัติเมื่อไม่กรอกช่องค่าธรรมเนียม
+          </label>
+          <div><label class="lbl">ค่าคอมมิชชัน (% ของมูลค่า)</label><input type="number" id="s-rate" min="0" step="0.001" placeholder="0.157"></div>
+          <div><label class="lbl">ค่าคอมขั้นต่ำ (บาท/รายการ)</label><input type="number" id="s-min" min="0" step="0.01" placeholder="0"></div>
+          <div><label class="lbl">VAT (%)</label><input type="number" id="s-vat" min="0" step="0.01" placeholder="7"></div>
+          <div><label class="lbl">ภาษีหัก ณ ที่จ่ายปันผล (%)</label><input type="number" id="s-divtax" min="0" step="0.01" placeholder="10"></div>
+        </div>
+        <div class="hint">สูตร: ค่าธรรมเนียม = max(มูลค่า × ค่าคอม%, ขั้นต่ำ) × (1 + VAT%) · ถ้ากรอกช่องค่าธรรมเนียมเองในรายการ จะใช้ค่าที่กรอก (ใช้ 0 ได้ถ้าไม่มีค่าธรรมเนียม) · ภาษีปันผลใช้เป็นค่าเริ่มต้นเมื่อไม่กรองช่องภาษีเอง · ค่าธรรมเนียม SET ไม่รวมค่าธรรมเนียมตลาด (ตรวจกับใบยืนยันของโบรกเกอร์อีกครั้ง)</div>
+      </details>
     </div>
   </div>
 
@@ -440,9 +633,20 @@
   const STORE_MOODS  = 'trading-journal:moods';
   const STORE_METHOD = 'trading-journal:method';
   const STORE_PRICES = 'trading-journal:marketPrices';
+  const STORE_DIVS   = 'trading-journal:dividends';
+  const STORE_SETTINGS = 'trading-journal:settings';
+  const STORE_META   = 'trading-journal:meta';   // {lastBackup: ISO | null, changes: จำนวนการเปลี่ยนแปลงตั้งแต่สำรองล่าสุด}
+
+  const BACKUP_WARN_DAYS = 7;      // เตือนเมื่อไม่ได้สำรองเกินกี่วัน
+  const BACKUP_WARN_CHANGES = 20;  // หรือมีการเปลี่ยนแปลงใหม่เกินกี่รายการ
+  const DEFAULT_SETTINGS = {autoFee:false, commRate:0.157, minFee:0, vat:7, divTax:10};
 
   let trades = [];
   let moods = [];
+  let dividends = [];      // {id, date, symbol, gross, tax}
+  let settings = {...DEFAULT_SETTINGS};
+  let meta = {lastBackup:null, changes:0};
+  let groupMode = 'symbol';
   let method = 'FIFO';
   let marketPrices = {};   // symbol -> ราคาตลาดปัจจุบันที่ผู้ใช้กรอกเอง ใช้คำนวณ unrealized P&L
   let editingId = null;    // id ของรายการที่กำลังแก้ไขอยู่ (null = โหมดเพิ่มรายการใหม่)
@@ -502,12 +706,143 @@
     moods  = safeGet(STORE_MOODS)  || [];
     method = safeGet(STORE_METHOD) || 'FIFO';
     marketPrices = safeGet(STORE_PRICES) || {};
+    dividends = (safeGet(STORE_DIVS) || []).filter(d=>d && d.symbol && d.date);
+    settings = sanitizeSettings(safeGet(STORE_SETTINGS));
+    meta = sanitizeMeta(safeGet(STORE_META));
     document.querySelectorAll('#methodToggle button').forEach(b=>{
       b.classList.toggle('active', b.dataset.m === method);
     });
+    fillSettingsForm();
     render();
     setStamp();
   }
+
+  // ===== Settings (ค่าธรรมเนียม / ภาษีปันผล) =====
+  function numOr(v, dflt){
+    const n = parseFloat(v);
+    return (isFinite(n) && n >= 0) ? n : dflt;
+  }
+  function sanitizeSettings(s){
+    s = (s && typeof s === 'object') ? s : {};
+    return {
+      autoFee: !!s.autoFee,
+      commRate: numOr(s.commRate, DEFAULT_SETTINGS.commRate),
+      minFee: numOr(s.minFee, DEFAULT_SETTINGS.minFee),
+      vat: numOr(s.vat, DEFAULT_SETTINGS.vat),
+      divTax: numOr(s.divTax, DEFAULT_SETTINGS.divTax)
+    };
+  }
+  function fillSettingsForm(){
+    $('s-auto').checked = settings.autoFee;
+    $('s-rate').value = settings.commRate;
+    $('s-min').value = settings.minFee;
+    $('s-vat').value = settings.vat;
+    $('s-divtax').value = settings.divTax;
+  }
+  function readSettingsForm(){
+    settings = sanitizeSettings({
+      autoFee: $('s-auto').checked,
+      commRate: $('s-rate').value,
+      minFee: $('s-min').value,
+      vat: $('s-vat').value,
+      divTax: $('s-divtax').value
+    });
+    safeSet(STORE_SETTINGS, settings);
+    updateFeeHint();
+  }
+  ['s-auto','s-rate','s-min','s-vat','s-divtax'].forEach(id=>{
+    $(id).addEventListener('change', readSettingsForm);
+  });
+
+  const round2 = n => Math.round(n*100)/100;
+
+  // ค่าธรรมเนียมอัตโนมัติ = max(มูลค่า × ค่าคอม%, ขั้นต่ำ) × (1 + VAT%)
+  function autoFeeFor(qty, price){
+    if(!(qty>0) || !(price>0)) return 0;
+    const base = qty * price;
+    const comm = Math.max(base * settings.commRate / 100, settings.minFee);
+    return round2(comm * (1 + settings.vat/100));
+  }
+
+  function updateFeeHint(){
+    const hint = $('feeHint');
+    const qty = parseFloat($('f-qty').value), price = parseFloat($('f-price').value);
+    const feeBox = $('f-fee');
+    if(!settings.autoFee){
+      hint.hidden = true;
+      feeBox.placeholder = '0.00';
+      return;
+    }
+    const fee = autoFeeFor(qty, price);
+    feeBox.placeholder = fee > 0 ? fee.toFixed(2) + ' (อัตโนมัติ)' : 'อัตโนมัติ';
+    hint.hidden = false;
+    hint.textContent = fee > 0
+      ? `ค่าธรรมเนียมอัตโนมัติ ≈ ${fmtMoney(fee)} (ถ้าไม่กรอกช่องค่าธรรมเนียม จะใช้ค่านี้)`
+      : 'เปิดคิดค่าธรรมเนียมอัตโนมัติอยู่ — กรอกจำนวนและราคา ระบบจะคำนวณให้ถ้าเว้นช่องค่าธรรมเนียมไว้';
+  }
+  $('f-qty').addEventListener('input', updateFeeHint);
+  $('f-price').addEventListener('input', updateFeeHint);
+
+  // ===== Backup tracking (สำรองล่าสุด + จำนวนการเปลี่ยนแปลงตั้งแต่นั้น) =====
+  function sanitizeMeta(m){
+    m = (m && typeof m === 'object') ? m : {};
+    const lb = m.lastBackup && !isNaN(new Date(m.lastBackup)) ? m.lastBackup : null;
+    return {lastBackup: lb, changes: Math.max(0, parseInt(m.changes,10) || 0)};
+  }
+  function markChanged(){
+    meta.changes++;
+    safeSet(STORE_META, meta);
+  }
+  function daysSince(iso){
+    return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  }
+
+  function renderBackupInfo(){
+    const hasData = trades.length + moods.length + dividends.length > 0;
+    const info = $('backupInfo');
+    const notice = $('backupNotice');
+    let overdue = false, reason = '';
+    let text;
+
+    if(meta.lastBackup){
+      const d = daysSince(meta.lastBackup);
+      text = `สำรองล่าสุด: <b>${d <= 0 ? 'วันนี้' : d + ' วันที่แล้ว'}</b> · เปลี่ยนแปลงตั้งแต่นั้น <b>${meta.changes}</b> รายการ`;
+      if(hasData && d >= BACKUP_WARN_DAYS){ overdue = true; reason = `ไม่ได้สำรองข้อมูลมา ${d} วันแล้ว`; }
+      else if(hasData && meta.changes >= BACKUP_WARN_CHANGES){ overdue = true; reason = `มีการเปลี่ยนแปลงใหม่ ${meta.changes} รายการตั้งแต่สำรองล่าสุด`; }
+    } else {
+      text = 'ยังไม่เคยสำรองข้อมูล';
+      if(hasData){ overdue = true; reason = 'ยังไม่เคยสำรองข้อมูลเลย'; }
+    }
+
+    info.innerHTML = text;
+    info.classList.toggle('overdue', overdue);
+    notice.hidden = !overdue;
+    if(overdue){
+      $('backupNoticeText').textContent = `⚠ ${reason} — ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ถ้าล้างข้อมูลเว็บไซต์หรือ iPad/Safari เคลียร์พื้นที่ ข้อมูลอาจหายทั้งหมด`;
+    }
+  }
+
+  function exportBackup(){
+    const payload = {version:2, exportedAt:new Date().toISOString(), trades, moods, dividends, settings, method, marketPrices};
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trading-journal-backup-${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    // บันทึกว่าสำรองแล้ว (ผู้ใช้อาจยกเลิกการดาวน์โหลดได้ แต่เบราว์เซอร์ไม่บอก จึงถือว่าสำรองตอนกดปุ่ม)
+    meta = {lastBackup:new Date().toISOString(), changes:0};
+    safeSet(STORE_META, meta);
+    renderBackupInfo();
+  }
+
+  // ขอให้เบราว์เซอร์เก็บข้อมูลแบบถาวร (ลดโอกาสถูกลบเมื่อพื้นที่เหลือน้อย) — ไม่รับประกัน และไม่แจ้งผู้ใช้ถ้าถูกปฏิเสธ
+  try{
+    if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+  }catch(e){}
 
   // ใช้เวลาท้องถิ่น ไม่ใช่ UTC — ถ้าใช้ toISOString() ผู้ใช้ในไทย (UTC+7)
   // ที่บันทึกรายการก่อน 07:00 น. จะได้วันที่ย้อนหลังไป 1 วัน
@@ -525,25 +860,40 @@
     const side = $('f-side').value;
     const qty = parseFloat($('f-qty').value);
     const price = parseFloat($('f-price').value);
-    const fee = parseFloat($('f-fee').value) || 0;
+    const tag = $('f-tag').value.trim();
+    const emotion = $('f-emotion').value;
+    const note = $('f-note').value.trim();
 
     if(!symbol || !qty || qty<=0 || !price || price<0){
       alert('กรุณากรอกสัญลักษณ์หุ้น จำนวน และราคาให้ถูกต้อง');
       return;
     }
 
+    // ช่องค่าธรรมเนียมว่าง = ให้ระบบคิดให้ (ถ้าเปิดไว้ในตั้งค่า) · กรอก 0 = ไม่มีค่าธรรมเนียม
+    const feeRaw = $('f-fee').value.trim();
+    const fee = feeRaw === ''
+      ? (settings.autoFee ? autoFeeFor(qty, price) : 0)
+      : (parseFloat(feeRaw) || 0);
+
     if(editingId){
       const t = trades.find(x=>x.id===editingId);
-      if(t) Object.assign(t, {date, symbol, side, qty, price, fee});
+      if(t) Object.assign(t, {date, symbol, side, qty, price, fee, tag, emotion, note});
       cancelEdit();
     } else {
-      trades.push({id:uid(), date, symbol, side, qty, price, fee});
+      trades.push({id:uid(), date, symbol, side, qty, price, fee, tag, emotion, note});
     }
     trades.sort((a,b)=> a.date.localeCompare(b.date));
     safeSet(STORE_TRADES, trades);
-    $('f-symbol').value=''; $('f-qty').value=''; $('f-price').value=''; $('f-fee').value='';
+    markChanged();
+    clearTradeForm();
     render();
   });
+
+  function clearTradeForm(){
+    ['f-symbol','f-qty','f-price','f-fee','f-tag','f-note'].forEach(id=>{ $(id).value=''; });
+    $('f-emotion').value = '';
+    updateFeeHint();
+  }
 
   function startEdit(id){
     const t = trades.find(x=>x.id===id);
@@ -555,6 +905,10 @@
     $('f-qty').value = t.qty;
     $('f-price').value = t.price;
     $('f-fee').value = t.fee || 0;
+    $('f-tag').value = t.tag || '';
+    $('f-emotion').value = t.emotion || '';
+    $('f-note').value = t.note || '';
+    updateFeeHint();
     $('addTradeBtn').textContent = '💾 บันทึกการแก้ไข';
     $('cancelEditBtn').style.display = 'inline-block';
     $('f-symbol').scrollIntoView({block:'center', behavior:'smooth'});
@@ -565,7 +919,7 @@
     $('addTradeBtn').textContent = '+ บันทึก';
     $('cancelEditBtn').style.display = 'none';
     $('f-date').value = todayStr();
-    $('f-symbol').value=''; $('f-qty').value=''; $('f-price').value=''; $('f-fee').value='';
+    clearTradeForm();
   }
   $('cancelEditBtn').addEventListener('click', cancelEdit);
 
@@ -581,22 +935,51 @@
     if(editingId === id) cancelEdit();
     trades = trades.filter(t=>t.id!==id);
     safeSet(STORE_TRADES, trades);
+    markChanged();
+    render();
+  });
+
+  // ===== Dividends =====
+  $('d-date').value = todayStr();
+
+  $('addDivBtn').addEventListener('click', ()=>{
+    const date = $('d-date').value || todayStr();
+    const symbol = $('d-symbol').value.trim().toUpperCase();
+    const gross = parseFloat($('d-gross').value);
+    const taxRaw = $('d-tax').value.trim();
+    if(!symbol || !gross || gross<=0){
+      alert('กรุณากรอกสัญลักษณ์หุ้นและจำนวนเงินปันผลให้ถูกต้อง');
+      return;
+    }
+    // เว้นช่องภาษีไว้ = หักตามอัตราในตั้งค่า (ค่าเริ่มต้น 10%) · กรอก 0 = ไม่มีภาษี
+    const tax = taxRaw === '' ? round2(gross * settings.divTax / 100) : (parseFloat(taxRaw) || 0);
+    if(tax > gross){
+      alert('ภาษีหัก ณ ที่จ่ายมากกว่าจำนวนเงินปันผล');
+      return;
+    }
+    dividends.push({id:uid(), date, symbol, gross, tax});
+    dividends.sort((a,b)=> a.date.localeCompare(b.date));
+    safeSet(STORE_DIVS, dividends);
+    markChanged();
+    $('d-symbol').value=''; $('d-gross').value=''; $('d-tax').value='';
+    render();
+  });
+
+  $('divBody').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-deldiv]');
+    if(!btn) return;
+    const id = btn.dataset.deldiv;
+    const d = dividends.find(x=>x.id===id);
+    if(d && !confirm(`ลบรายการปันผลนี้?\n${d.date}  ${d.symbol}  ${fmtMoney(d.gross)}`)) return;
+    dividends = dividends.filter(x=>x.id!==id);
+    safeSet(STORE_DIVS, dividends);
+    markChanged();
     render();
   });
 
   // ===== Export / Import JSON =====
-  $('exportBtn').addEventListener('click', ()=>{
-    const payload = {version:1, exportedAt:new Date().toISOString(), trades, moods, method, marketPrices};
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trading-journal-backup-${todayStr()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  });
+  $('exportBtn').addEventListener('click', exportBackup);
+  $('backupNowBtn').addEventListener('click', exportBackup);
 
   $('importBtn').addEventListener('click', ()=> $('importFile').click());
 
@@ -609,8 +992,9 @@
         const data = JSON.parse(reader.result);
         if(!data || !Array.isArray(data.trades)) throw new Error('ไม่พบข้อมูลรายการซื้อขายในไฟล์');
 
-        if(!confirm(`นำเข้าข้อมูลนี้จะแทนที่ข้อมูลปัจจุบันทั้งหมด\n(ปัจจุบันมี ${trades.length} รายการซื้อขาย, ${moods.length} บันทึกอารมณ์)\nต้องการดำเนินการต่อหรือไม่?`)) return;
+        if(!confirm(`นำเข้าข้อมูลนี้จะแทนที่ข้อมูลปัจจุบันทั้งหมด\n(ปัจจุบันมี ${trades.length} รายการซื้อขาย, ${dividends.length} ปันผล, ${moods.length} บันทึกอารมณ์)\nต้องการดำเนินการต่อหรือไม่?`)) return;
 
+        // ไฟล์สำรองรุ่นเก่า (version 1) ไม่มี tag/emotion/note/dividends/settings — ใส่ค่าว่างให้
         trades = data.trades.map(t=>({
           id: t.id || uid(),
           date: t.date || todayStr(),
@@ -618,8 +1002,20 @@
           side: t.side === 'sell' ? 'sell' : 'buy',
           qty: Number(t.qty) || 0,
           price: Number(t.price) || 0,
-          fee: Number(t.fee) || 0
+          fee: Number(t.fee) || 0,
+          tag: String(t.tag || '').trim().slice(0,30),
+          emotion: ['1','2','3','4','5'].includes(String(t.emotion)) ? String(t.emotion) : '',
+          note: String(t.note || '').slice(0,300)
         })).filter(t=>t.symbol && t.qty>0);
+        dividends = (Array.isArray(data.dividends) ? data.dividends : []).map(d=>({
+          id: d.id || uid(),
+          date: d.date || todayStr(),
+          symbol: String(d.symbol||'').trim().toUpperCase(),
+          gross: Number(d.gross) || 0,
+          tax: Math.min(Number(d.tax) || 0, Number(d.gross) || 0)
+        })).filter(d=>d.symbol && d.gross>0);
+        dividends.sort((a,b)=> a.date.localeCompare(b.date));
+        settings = sanitizeSettings(data.settings);
         moods = Array.isArray(data.moods) ? data.moods.map(m=>({
           id: m.id || uid(),
           date: m.date || new Date().toISOString(),
@@ -633,10 +1029,16 @@
         safeSet(STORE_MOODS, moods);
         safeSet(STORE_METHOD, method);
         safeSet(STORE_PRICES, marketPrices);
+        safeSet(STORE_DIVS, dividends);
+        safeSet(STORE_SETTINGS, settings);
+        // ข้อมูลตอนนี้ตรงกับไฟล์ที่นำเข้า — ถือว่าสำรองล่าสุด = เวลาที่ส่งออกไฟล์นั้น (ถ้ามี)
+        meta = {lastBackup: (data.exportedAt && !isNaN(new Date(data.exportedAt))) ? data.exportedAt : meta.lastBackup, changes:0};
+        safeSet(STORE_META, meta);
 
         document.querySelectorAll('#methodToggle button').forEach(b=>{
           b.classList.toggle('active', b.dataset.m === method);
         });
+        fillSettingsForm();
         cancelEdit();
         filters = {symbol:'', from:'', to:''};
         $('filterFrom').value=''; $('filterTo').value='';
@@ -663,7 +1065,7 @@
 
   function populateSymbolFilter(){
     const sel = $('filterSymbol');
-    const symbols = [...new Set(trades.map(t=>t.symbol))].sort();
+    const symbols = [...new Set([...trades.map(t=>t.symbol), ...dividends.map(d=>d.symbol)])].sort();
     const current = filters.symbol;
     sel.innerHTML = '<option value="">ทั้งหมด</option>' + symbols.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
     sel.value = symbols.includes(current) ? current : '';
@@ -719,6 +1121,8 @@
     $('statUnrealized').className = 'value ' + (hasAny ? (total>=0?'pos':'neg') : '');
   }
 
+  $('groupMode').addEventListener('change', ()=>{ groupMode = $('groupMode').value; render(); });
+
   document.getElementById('methodToggle').addEventListener('click', (e)=>{
     const btn = e.target.closest('button[data-m]');
     if(!btn) return;
@@ -745,6 +1149,7 @@
     }
     moods.unshift({id:uid(), date:new Date().toISOString(), mood:selectedMood||'3', note});
     safeSet(STORE_MOODS, moods);
+    markChanged();
     $('moodNote').value='';
     selectedMood = null;
     document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active'));
@@ -757,6 +1162,7 @@
     const id = btn.dataset.delmood;
     moods = moods.filter(m=>m.id!==id);
     safeSet(STORE_MOODS, moods);
+    markChanged();
     render();
   });
 
@@ -766,12 +1172,25 @@
   const EPS = 0.0000001;
 
   function computeLedger(){
-    // returns { realizedEvents, holdings, shortfalls }
-    const bySymbol = {}; // symbol -> array of open lots {qty, price(รวมค่าธรรมเนียมต่อหุ้นแล้ว)}
-    const realizedEvents = []; // {date, pnl, symbol} — คงลำดับตามที่ประมวลผล (เรียงตามวันที่) ไว้ให้ filter/กราฟใช้ต่อ
+    // returns { realizedEvents, holdings, shortfalls, pnlByTrade }
+    const bySymbol = {}; // symbol -> array of open lots {qty, price(รวมค่าธรรมเนียมต่อหุ้นแล้ว), day(เลขวันตั้งแต่ epoch ของวันซื้อ), tag}
+    const realizedEvents = []; // {id, date, pnl, symbol, qty, days, tag, short} — คงลำดับตามที่ประมวลผล (เรียงตามวันที่) ไว้ให้ filter/กราฟใช้ต่อ
     const shortfalls = [];     // รายการขายที่หาไม้ซื้อมารองรับไม่ครบ
+    const pnlByTrade = {};     // trade id (รายการขาย) -> {pnl, short}
 
-    const sorted = [...trades].sort((a,b)=> a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    // วันเดียวกันให้ "ซื้อ" ประมวลผลก่อน "ขาย" เสมอ — ไม่งั้นถ้าลงรายการขายก่อนซื้อ (เทรดเดย์/ลงย้อนหลัง)
+    // จะขึ้นเตือนขายเกินจำนวนที่ถือ และกำไรเพี้ยนทั้งที่ข้อมูลถูกต้อง
+    const sideRank = s => s === 'buy' ? 0 : 1;
+    const sorted = [...trades].sort((a,b)=>
+      a.date.localeCompare(b.date) || sideRank(a.side) - sideRank(b.side) || a.id.localeCompare(b.id));
+
+    // แท็กที่มีจำนวนหุ้นรวมมากสุดในกอง (ไม่นับแท็กว่าง) — ใช้ตอนยุบไม้แบบ AVG และตอนอนุมานแท็กของรายการขาย
+    const dominantTag = (qtyByTag)=>{
+      let best = '', bestQ = 0;
+      for(const k in qtyByTag){ if(k && qtyByTag[k] > bestQ){ best = k; bestQ = qtyByTag[k]; } }
+      return best;
+    };
+    const dayNum = s => Math.floor(Date.parse(s + 'T00:00:00Z') / 86400000);
 
     for(const t of sorted){
       const lots = bySymbol[t.symbol] = bySymbol[t.symbol] || [];
@@ -779,7 +1198,7 @@
       const feePerShare = t.qty>0 ? fee / t.qty : 0;
 
       if(t.side === 'buy'){
-        lots.push({qty:t.qty, price:t.price + feePerShare});
+        lots.push({qty:t.qty, price:t.price + feePerShare, day:dayNum(t.date), tag:t.tag || ''});
 
         // Average Cost : ยุบทุกไม้ให้เหลือกองเดียวที่ต้นทุนเฉลี่ยถ่วงน้ำหนัก
         // ต้องยุบตั้งแต่ตอนซื้อ ไม่ใช่ตอนขาย มิฉะนั้นไม้ที่เหลือจะคงราคาเดิมของตัวเอง
@@ -787,8 +1206,13 @@
         if(method === 'AVG' && lots.length > 1){
           const q = lots.reduce((s,l)=>s+l.qty,0);
           const c = lots.reduce((s,l)=>s+l.qty*l.price,0);
+          const dq = lots.reduce((s,l)=>s+(isFinite(l.day) ? l.qty : 0),0);
+          const dsum = lots.reduce((s,l)=>s+(isFinite(l.day) ? l.qty*l.day : 0),0);
+          const qtyByTag = {};
+          lots.forEach(l=>{ qtyByTag[l.tag] = (qtyByTag[l.tag]||0) + l.qty; });
           lots.length = 0;
-          lots.push({qty:q, price: q>0 ? c/q : 0});
+          // วันซื้อของกองรวม = วันซื้อเฉลี่ยถ่วงน้ำหนักตามจำนวนหุ้น (ใช้คำนวณระยะเวลาถือ)
+          lots.push({qty:q, price: q>0 ? c/q : 0, day: dq>0 ? dsum/dq : NaN, tag:dominantTag(qtyByTag)});
         }
       } else {
         // ตัดต้นทุนจากหัวแถวเหมือนกันทั้งสองวิธี
@@ -796,23 +1220,35 @@
         let qtyToSell = t.qty;
         const proceeds = (t.price * t.qty) - fee;
         let costRemoved = 0;
+        const sellDay = dayNum(t.date);
+        let heldQty = 0, heldDaySum = 0;   // ไว้หาระยะเวลาถือเฉลี่ยของรายการขายนี้
+        const qtyByTag = {};
 
         while(qtyToSell > EPS && lots.length > 0){
           const lot = lots[0];
           const take = Math.min(lot.qty, qtyToSell);
           costRemoved += take * lot.price;
+          if(isFinite(lot.day) && isFinite(sellDay)){ heldQty += take; heldDaySum += take * (sellDay - lot.day); }
+          qtyByTag[lot.tag] = (qtyByTag[lot.tag]||0) + take;
           lot.qty -= take;
           qtyToSell -= take;
           if(lot.qty <= EPS) lots.shift();
         }
 
         // ขายมากกว่าจำนวนที่ถืออยู่ : ส่วนที่เกินไม่มีต้นทุนมาหัก กำไรจะสูงเกินจริง
-        if(qtyToSell > EPS){
+        const isShort = qtyToSell > EPS;
+        if(isShort){
           shortfalls.push({date:t.date, symbol:t.symbol, qty:qtyToSell});
         }
 
         const pnl = proceeds - costRemoved;
-        realizedEvents.push({date:t.date, pnl, symbol:t.symbol});
+        realizedEvents.push({
+          id:t.id, date:t.date, pnl, symbol:t.symbol, qty:t.qty,
+          days: heldQty > 0 ? heldDaySum/heldQty : null,
+          tag: t.tag || dominantTag(qtyByTag),
+          short: isShort
+        });
+        pnlByTrade[t.id] = {pnl, short:isShort};
       }
     }
 
@@ -827,44 +1263,90 @@
       }
     }
 
-    return {realizedEvents, holdings, shortfalls};
+    return {realizedEvents, holdings, shortfalls, pnlByTrade};
+  }
+
+  // ===== สถิติการเทรด (คำนวณจากรายการขายที่ผ่านตัวกรองแล้ว) =====
+  // cumPoints = กำไรสะสมตามลำดับเวลา (รวมปันผล) ใช้หา Max Drawdown
+  function computeStats(events, cumPoints){
+    const wins = events.filter(e=>e.pnl > 0);
+    const losses = events.filter(e=>e.pnl < 0);
+    const sumWin = wins.reduce((s,e)=>s+e.pnl, 0);
+    const sumLoss = losses.reduce((s,e)=>s+e.pnl, 0);   // ค่าติดลบ
+
+    let streak = 0, maxStreak = 0;
+    for(const e of events){
+      if(e.pnl < 0){ streak++; if(streak > maxStreak) maxStreak = streak; }
+      else streak = 0;
+    }
+
+    // Max Drawdown : เริ่มนับจากกำไรสะสม 0 ก่อนมีรายการแรก
+    let peak = 0, maxDD = 0;
+    for(const c of cumPoints){
+      if(c.cum > peak) peak = c.cum;
+      if(peak - c.cum > maxDD) maxDD = peak - c.cum;
+    }
+
+    const held = events.filter(e=>e.days != null && isFinite(e.days));
+    const heldQty = held.reduce((s,e)=>s+e.qty, 0);
+    const avgDays = heldQty > 0 ? held.reduce((s,e)=>s+e.days*e.qty, 0) / heldQty : null;
+
+    return {
+      n: events.length, nWin: wins.length, nLoss: losses.length,
+      avgWin: wins.length ? sumWin/wins.length : null,
+      avgLoss: losses.length ? sumLoss/losses.length : null,
+      profitFactor: sumLoss < 0 ? sumWin/(-sumLoss) : (sumWin > 0 ? Infinity : null),
+      maxStreak, maxDD, avgDays
+    };
   }
 
   // ===== Render =====
   function render(){
     populateSymbolFilter();
+    populateDatalists();
+
+    // ledger ต้องคำนวณจากประวัติทั้งหมดเสมอ (FIFO/AVG ผิดถ้าตัดบางรายการออกก่อนคำนวณ)
+    // ตัวกรองจะถูกนำไปใช้ทีหลัง กับ realizedEvents/holdings ที่คำนวณเสร็จแล้วเท่านั้น
+    const ledger = computeLedger();
+    lastLedger = ledger;
 
     // trades table (มุมมองนี้ผ่านตัวกรองหุ้น/ช่วงวันที่ — ไม่กระทบการคำนวณต้นทุนซึ่งใช้ประวัติทั้งหมดเสมอ)
     const filteredTrades = trades.filter(matchesFilter);
     const tbody = $('tradeBody');
     if(trades.length===0){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">ยังไม่มีรายการซื้อขาย — เริ่มบันทึกรายการแรกได้เลย</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">ยังไม่มีรายการซื้อขาย — เริ่มบันทึกรายการแรกได้เลย</td></tr>';
     } else if(filteredTrades.length===0){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">ไม่มีรายการที่ตรงกับตัวกรอง</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">ไม่มีรายการที่ตรงกับตัวกรอง</td></tr>';
     } else {
       const sorted = [...filteredTrades].sort((a,b)=> b.date.localeCompare(a.date));
       tbody.innerHTML = sorted.map(t=>{
         const value = t.qty * t.price;
+        // กำไร/ขาดทุนที่รับรู้ของรายการขายนี้ (ตามวิธี FIFO/AVG ที่เลือกอยู่) — รายการซื้อไม่มี
+        const r = t.side === 'sell' ? ledger.pnlByTrade[t.id] : null;
+        const pnlCell = r
+          ? `<td class="num ${r.pnl>=0?'pos':'neg'}" ${r.short ? 'title="ขายเกินจำนวนที่ถือ — กำไรสูงเกินจริง"' : ''}>${fmtMoney(r.pnl)}${r.short ? ' ⚠' : ''}</td>`
+          : '<td class="num" style="color:var(--paper-dim);">—</td>';
+        const emo = t.emotion && moodEmoji[t.emotion] ? moodEmoji[t.emotion] + ' ' : '';
+        const noteCell = (t.tag || t.note || emo)
+          ? `<td class="note-cell">${t.tag ? `<span class="chip">${escapeHtml(t.tag)}</span>` : ''}${emo}<span class="note-text" title="${escapeHtml(t.note||'')}">${escapeHtml(t.note||'')}</span></td>`
+          : '<td class="note-cell"></td>';
         return `<tr>
-          <td>${t.date}</td>
+          <td>${escapeHtml(t.date)}</td>
           <td>${escapeHtml(t.symbol)}</td>
           <td class="${t.side==='buy'?'side-buy':'side-sell'}">${t.side==='buy'?'ซื้อ':'ขาย'}</td>
           <td class="num">${fmtNum(t.qty)}</td>
           <td class="num">${fmtMoney(t.price)}</td>
           <td class="num">${fmtMoney(t.fee||0)}</td>
           <td class="num">${fmtMoney(value)}</td>
-          <td>
-            <button class="icon-btn" data-edit="${t.id}" title="แก้ไข">✎</button>
-            <button class="icon-btn" data-del="${t.id}" title="ลบ">✕</button>
+          ${pnlCell}
+          ${noteCell}
+          <td style="white-space:nowrap;">
+            <button class="icon-btn" data-edit="${escapeHtml(t.id)}" title="แก้ไข">✎</button>
+            <button class="icon-btn" data-del="${escapeHtml(t.id)}" title="ลบ">✕</button>
           </td>
         </tr>`;
       }).join('');
     }
-
-    // ledger ต้องคำนวณจากประวัติทั้งหมดเสมอ (FIFO/AVG ผิดถ้าตัดบางรายการออกก่อนคำนวณ)
-    // ตัวกรองจะถูกนำไปใช้ทีหลัง กับ realizedEvents/holdings ที่คำนวณเสร็จแล้วเท่านั้น
-    const ledger = computeLedger();
-    lastLedger = ledger;
 
     // เตือนเมื่อมีรายการขายที่หาไม้ซื้อมารองรับไม่ครบ (แสดงเสมอ ไม่ผ่านตัวกรอง เพราะเป็นปัญหาความถูกต้องของข้อมูล)
     const wb = $('warnBox');
@@ -892,8 +1374,17 @@
     const avgPnl = filteredEvents.length ? realizedTotal/filteredEvents.length : null;
     const totalFees = filteredTrades.reduce((s,t)=>s+(Number(t.fee)||0), 0);
 
+    // ปันผลผ่านตัวกรองเดียวกับรายการซื้อขาย (หุ้น + ช่วงวันที่) · นับยอดสุทธิหลังหักภาษี
+    const filteredDivs = dividends.filter(matchesFilter);
+    const divNet = d => d.gross - (d.tax || 0);
+    const divTotal = filteredDivs.reduce((s,d)=>s+divNet(d), 0);
+
     $('statRealized').textContent = fmtMoney(realizedTotal);
     $('statRealized').className = 'value ' + (realizedTotal>=0?'pos':'neg');
+    $('statDiv').textContent = fmtMoney(divTotal);
+    $('statDiv').className = 'value ' + (divTotal>0 ? 'pos' : '');
+    $('statTotal').textContent = fmtMoney(realizedTotal + divTotal);
+    $('statTotal').className = 'value ' + ((realizedTotal + divTotal)>=0?'pos':'neg');
     $('statTrades').textContent = filteredTrades.length;
     $('statWinRate').textContent = winRate==null ? '—' : winRate.toFixed(1)+'%';
     $('statFees').textContent = fmtMoney(totalFees);
@@ -946,14 +1437,93 @@
       }).join('');
     }
 
+    // dividends table
+    const db = $('divBody');
+    if(dividends.length===0){
+      db.innerHTML = '<tr class="empty-row"><td colspan="6">ยังไม่มีบันทึกปันผล</td></tr>';
+    } else if(filteredDivs.length===0){
+      db.innerHTML = '<tr class="empty-row"><td colspan="6">ไม่มีรายการที่ตรงกับตัวกรอง</td></tr>';
+    } else {
+      db.innerHTML = [...filteredDivs].sort((a,b)=> b.date.localeCompare(a.date)).map(d=>`<tr>
+        <td>${escapeHtml(d.date)}</td>
+        <td>${escapeHtml(d.symbol)}</td>
+        <td class="num">${fmtMoney(d.gross)}</td>
+        <td class="num">${fmtMoney(d.tax||0)}</td>
+        <td class="num pos">${fmtMoney(divNet(d))}</td>
+        <td><button class="icon-btn" data-deldiv="${escapeHtml(d.id)}" title="ลบ">✕</button></td>
+      </tr>`).join('');
+    }
+
+    // กราฟ/Max Drawdown ใช้กำไรสะสมที่รวมทั้งกำไรจากการขายและปันผลสุทธิ เรียงตามวันที่
+    // (sort เสถียร — วันเดียวกันคงลำดับเดิม: รายการขายก่อน แล้วค่อยปันผล)
+    const cashEvents = [
+      ...filteredEvents.map(ev=>({date:ev.date, amt:ev.pnl})),
+      ...filteredDivs.map(d=>({date:d.date, amt:divNet(d)}))
+    ].sort((a,b)=> a.date.localeCompare(b.date));
     const cumMap = [];
     let running = 0;
-    for(const ev of filteredEvents){
-      running += ev.pnl;
+    for(const ev of cashEvents){
+      running += ev.amt;
       cumMap.push({date:ev.date, cum:running});
     }
     lastCumMap = cumMap;
     drawChart(cumMap);
+
+    renderStats(computeStats(filteredEvents, cumMap));
+    renderGroups(filteredEvents, filteredDivs, divNet);
+    renderBackupInfo();
+  }
+
+  function renderStats(s){
+    const set = (id, text, cls)=>{ $(id).textContent = text; $(id).className = 'value ' + (cls||''); };
+    set('stAvgWin', s.avgWin==null ? '—' : fmtMoney(s.avgWin), s.avgWin==null ? '' : 'pos');
+    set('stAvgLoss', s.avgLoss==null ? '—' : fmtMoney(s.avgLoss), s.avgLoss==null ? '' : 'neg');
+    set('stPF', s.profitFactor==null ? '—' : (s.profitFactor===Infinity ? '∞' : s.profitFactor.toFixed(2)),
+        s.profitFactor==null ? '' : (s.profitFactor>=1 ? 'pos' : 'neg'));
+    set('stWL', s.n ? `${s.nWin} / ${s.nLoss}` : '—');
+    set('stStreak', s.n ? s.maxStreak + ' ไม้' : '—', s.maxStreak>=3 ? 'neg' : '');
+    set('stDD', s.n ? (s.maxDD > 0 ? '-' + fmtMoney(s.maxDD) : fmtMoney(0)) : '—', s.maxDD>0 ? 'neg' : '');
+    set('stHold', s.avgDays==null ? '—' : fmtNum(s.avgDays, 1) + ' วัน');
+  }
+
+  // ตารางกำไรแยกกลุ่ม : รายหุ้น หรือ กลยุทธ์/แท็ก
+  function renderGroups(events, divs, divNet){
+    const byTag = groupMode === 'tag';
+    $('groupKeyHead').textContent = byTag ? 'กลยุทธ์' : 'หุ้น';
+    $('groupHint').hidden = !byTag;
+    const groups = {};
+    const g = k => groups[k] = groups[k] || {n:0, wins:0, realized:0, div:0};
+    for(const e of events){
+      const x = g(byTag ? (e.tag || 'ไม่ระบุ') : e.symbol);
+      x.n++; if(e.pnl > 0) x.wins++; x.realized += e.pnl;
+    }
+    if(!byTag){
+      for(const d of divs){ g(d.symbol).div += divNet(d); }
+    }
+    const rows = Object.keys(groups).map(k=>({k, ...groups[k], total: groups[k].realized + groups[k].div}))
+      .sort((a,b)=> b.total - a.total);
+    const body = $('groupBody');
+    if(rows.length === 0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="6">ยังไม่มีข้อมูล</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r=>`<tr>
+      <td>${escapeHtml(r.k)}</td>
+      <td class="num">${r.n}</td>
+      <td class="num">${r.n ? Math.round(r.wins/r.n*100) + '%' : '—'}</td>
+      <td class="num ${r.realized>=0?'pos':'neg'}">${fmtMoney(r.realized)}</td>
+      <td class="num">${byTag ? '—' : fmtMoney(r.div)}</td>
+      <td class="num ${r.total>=0?'pos':'neg'}">${fmtMoney(r.total)}</td>
+    </tr>`).join('');
+  }
+
+  // datalist ของช่องหุ้น/แท็ก (ช่วยพิมพ์ซ้ำเร็ว + ให้แท็กสะกดตรงกัน ตารางแยกกลุ่มจะได้ไม่แตกเป็นหลายกลุ่ม)
+  const DEFAULT_TAGS = ['Breakout','Swing','ปันผล','ถือยาว','เก็งกำไร','ตามข่าว','ตัดขาดทุน'];
+  function populateDatalists(){
+    const syms = [...new Set([...trades.map(t=>t.symbol), ...dividends.map(d=>d.symbol)])].sort();
+    $('symList').innerHTML = syms.map(s=>`<option value="${escapeHtml(s)}">`).join('');
+    const tags = [...new Set([...trades.map(t=>t.tag).filter(Boolean), ...DEFAULT_TAGS])];
+    $('tagList').innerHTML = tags.map(s=>`<option value="${escapeHtml(s)}">`).join('');
   }
 
   function escapeHtml(s){
