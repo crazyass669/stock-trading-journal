@@ -2,7 +2,7 @@
   "name": "สมุดบันทึกการเทรด — Trading Ledger",
   "short_name": "Trading Ledger",
   "description": "FIFO / Average Cost · P&L Timeline · Market Mood Journal",
-  "start_url": "./stock-trading-journal.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

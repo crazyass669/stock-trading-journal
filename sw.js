@@ -1,6 +1,7 @@
-const CACHE_NAME = 'trading-journal-v1';
+const CACHE_NAME = 'trading-journal-v2';
 const CORE_ASSETS = [
-  './stock-trading-journal.html',
+  './',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
