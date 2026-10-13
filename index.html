@@ -325,6 +325,19 @@
     display:flex;gap:12px;align-items:center;flex-wrap:wrap;
   }
   .notice[hidden]{display:none;}   /* display:flex ข้างบนชนะ [hidden] ของเบราว์เซอร์ ต้องสั่งซ่อนเอง */
+  /* แถบเลิกทำการลบ: ลอยกลางล่างจอ เหนือ safe-area ของ iOS */
+  .undo-bar{
+    position:fixed;left:50%;transform:translateX(-50%);z-index:60;
+    bottom:max(16px, calc(env(safe-area-inset-bottom) + 8px));
+    width:max-content;   /* ไม่งั้น left:50% ทำให้กว้างได้แค่ครึ่งจอ */
+    max-width:min(560px, calc(100vw - 24px));
+    display:flex;gap:12px;align-items:center;
+    background:var(--ink-panel-2);border:1px solid var(--gold);border-radius:6px;
+    padding:9px 12px;box-shadow:0 6px 24px rgba(0,0,0,.45);
+    font-size:13px;color:var(--paper);
+  }
+  .undo-bar[hidden]{display:none;}
+  .undo-bar span{flex:1;min-width:0;overflow-wrap:anywhere;}
   .notice span{flex:1;min-width:200px;}
   .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
   .settings-check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--paper);}
@@ -364,6 +377,11 @@
 
   <datalist id="symList"></datalist>
   <datalist id="tagList"></datalist>
+
+  <div class="undo-bar" id="undoBar" role="status" aria-live="polite" hidden>
+    <span id="undoText"></span>
+    <button class="btn small" id="undoBtn">↩ เลิกทำ</button>
+  </div>
 
   <div class="grid">
     <!-- LEFT COLUMN -->
@@ -760,6 +778,7 @@
       const s = JSON.stringify(val);
       localStorage.setItem(key, s);
       lastRaw[key] = s;
+      if(!storageOK){ storageOK = true; setStamp(); }   // เขียนได้อีกแล้ว (เช่น ผู้ใช้เคลียร์พื้นที่) — เลิกแสดงคำเตือน "บันทึกไม่ได้"
       return true;
     }catch(e){
       storageOK = false;
@@ -859,6 +878,15 @@
     rows.sort((a,b)=> a.date.localeCompare(b.date));
     return {rows, skipped};
   }
+  // วันที่ของบันทึกอารมณ์: สตริงที่อ่านได้ใช้ตามเดิม · ตัวเลข (timestamp) แปลงเป็น ISO · ไม่มี/เสีย → ดึงเวลาจาก id (id รูปแบบ uid คือ
+  // เวลา base36 8 ตัวแรก) · ไม่ได้อีก → ค่าคงที่ 1970 — ห้ามใช้ "เวลาตอนโหลด" เพราะค่าจะเปลี่ยนทุกครั้งที่ซิงก์/โหลดซ้ำ
+  function moodDate(m){
+    if(typeof m.date === 'string' && m.date && !isNaN(new Date(m.date))) return m.date;
+    if(typeof m.date === 'number' && isFinite(m.date) && !isNaN(new Date(m.date))) return new Date(m.date).toISOString();
+    const idm = typeof m.id === 'string' && /^[0-9a-z]{8}/.test(m.id) ? parseInt(m.id.slice(0, 8), 36) : NaN;
+    if(idm > 946684800000 && idm < 4102444800000) return new Date(idm).toISOString();
+    return '1970-01-01T00:00:00.000Z';
+  }
   function normMoods(arr){
     const mkId = idMaker();
     const rows = []; let skipped = 0;
@@ -866,7 +894,7 @@
       if(!isObj(m)){ skipped++; continue; }
       rows.push({
         id: mkId(m.id, [m.date, m.mood, m.note].join('|')),
-        date: (m.date && !isNaN(new Date(m.date))) ? String(m.date) : new Date().toISOString(),
+        date: moodDate(m),
         mood: ['1','2','3','4','5'].includes(String(m.mood)) ? String(m.mood) : '3',
         note: String(m.note || '')
       });
@@ -948,6 +976,7 @@
   function syncFromStorage(){
     if(!storageChanged()) return false;
     loadState();
+    showUndo();    // ตัดรายการเลิกทำที่ล้าสมัยและวาดแถบใหม่ — ข้อมูลถูกแทนที่ทั้งชุดจากอีกแท็บ (epoch เปลี่ยน) รายการเดิมใช้ไม่ได้
     const notes = reconcileEdits();
     refreshUI();
     flashStamp(notes.length ? '⚠ ' + notes.join(' · ') + ' — กดบันทึกเพื่อเพิ่มเป็นรายการใหม่' : '↻ อัปเดตข้อมูลจากอีกแท็บแล้ว');
@@ -959,12 +988,144 @@
   document.addEventListener('visibilitychange', ()=>{
     if(!document.hidden){ syncFromStorage(); refreshDefaultDates(); }
   });
-  window.addEventListener('focus', syncFromStorage);
+  window.addEventListener('focus', ()=>{ syncFromStorage(); refreshDefaultDates(); });
+  window.addEventListener('pageshow', ()=>{ syncFromStorage(); refreshDefaultDates(); });   // กลับมาจาก bfcache / เปิดแอปที่ถูกพัก
+  setInterval(refreshDefaultDates, 60000);   // หน้าต่างที่เปิดค้างและโฟกัสอยู่ข้ามเที่ยงคืน ไม่มีเหตุการณ์อะไรมาบอก
 
   // หลังกล่อง confirm/alert ปิด ต้อง "รอให้ event loop หมุนก่อน" แล้วค่อยซิงก์: เบราว์เซอร์ส่งข้อมูล localStorage ข้ามแท็บแบบ async
   // และหน้าที่ติดอยู่ในกล่องโต้ตอบประมวลผลข้อความเหล่านั้นไม่ได้ — ซิงก์ทันทีที่กล่องปิดจะยังเห็นค่าเก่า แล้วเขียนทับงานของอีกแท็บ
-  const afterDialogTick = () => new Promise(r => setTimeout(r, 50));
+  // หมายเหตุ: นี่เป็นวิธีเชิงปฏิบัติ ไม่ใช่การรับประกัน — localStorage ไม่มีธุรกรรมข้ามแท็บ การส่งค่าข้ามโปรเซสเป็นแบบ async
+  // ค่าที่เพียงพอในทางปฏิบัติ (เห็นผลจริงใน Chromium ราวไม่กี่มิลลิวินาที) แต่เครื่องช้า/Safari อาจนานกว่านี้
+  // ทางที่ถูกต้องจริงคือย้ายที่เก็บไป IndexedDB (มีธุรกรรม) ซึ่งเกินขอบเขตงานนี้
+  const afterDialogTick = () => new Promise(r => setTimeout(r, 100));
 
+  // ===== ภาพรวมสถานะทั้งชุด (ใช้ร่วมกันระหว่างนำเข้า / เลิกทำนำเข้า — แก้คีย์ที่เก็บที่เดียว) =====
+  const stateEntries = s => [
+    [STORE_TRADES, s.trades], [STORE_MOODS, s.moods], [STORE_METHOD, s.method], [STORE_PRICES, s.marketPrices],
+    [STORE_DIVS, s.dividends], [STORE_SETTINGS, s.settings], [STORE_META, s.meta]
+  ];
+  function applyState(s){
+    trades = s.trades; dividends = s.dividends; moods = s.moods;
+    settings = s.settings; method = s.method; marketPrices = s.marketPrices; meta = s.meta;
+  }
+
+  // ===== เลิกทำการลบ / การนำเข้า =====
+  // แถบ "เลิกทำ" อยู่ 15 วินาทีหลังลบ (นำเข้า 60 วินาที) — เก็บในหน่วยความจำของแท็บนี้เท่านั้น (รีโหลดแล้วหมด)
+  // ลบหลายรายการติดกันเลิกทำย้อนทีละรายการได้ · คืนรายการที่ตำแหน่งเดิม (ลำดับวันเดียวกันมีผลต่อต้นทุน FIFO/AVG)
+  // แต่ละรายการมีอายุของตัวเอง (expires) และผูกกับ epoch ของชุดข้อมูล — ถ้าข้อมูลถูกแทนที่ทั้งชุด (นำเข้าจากแท็บไหนก็ตาม) จะใช้ไม่ได้
+  const UNDO_TTL = 15000, UNDO_MAX = 20;
+  const undoStack = [];
+  let undoTimer = null;
+  const UNDO_KINDS = {
+    trade:    {list: () => trades,    key: STORE_TRADES},
+    dividend: {list: () => dividends, key: STORE_DIVS},
+    mood:     {list: () => moods,     key: STORE_MOODS}
+  };
+
+  function pruneUndo(){
+    const now = Date.now();
+    for(let i = undoStack.length - 1; i >= 0; i--){
+      if(undoStack[i].expires <= now || undoStack[i].epoch !== meta.epoch) undoStack.splice(i, 1);
+    }
+  }
+  function showUndo(){
+    clearTimeout(undoTimer);
+    pruneUndo();
+    const bar = $('undoBar');
+    if(!undoStack.length){ bar.hidden = true; return; }
+    const top = undoStack[undoStack.length - 1];
+    $('undoText').textContent = top.label + (undoStack.length > 1 ? ` (และอีก ${undoStack.length - 1} รายการ)` : '');
+    $('undoBtn').textContent = undoStack.length > 1 ? `↩ เลิกทำ (${undoStack.length})` : '↩ เลิกทำ';
+    bar.hidden = false;
+    // ตั้งเวลาปลุกที่รายการที่หมดอายุก่อนสุด (รายการใหม่ไม่ต่ออายุรายการเก่า และไม่ตัดอายุรายการที่ยาวกว่า)
+    const next = Math.min(...undoStack.map(e => e.expires)) - Date.now();
+    undoTimer = setTimeout(showUndo, Math.max(50, next));
+  }
+  function pushUndo(entry){
+    entry.epoch = meta.epoch;
+    entry.expires = Date.now() + (entry.ttl || UNDO_TTL);
+    undoStack.push(entry);
+    if(undoStack.length > UNDO_MAX) undoStack.shift();
+    showUndo();
+  }
+
+  // ลบรายการ → เก็บตัวรายการ + ตำแหน่งสำหรับคืน: รายการซื้อขาย/ปันผลจำรายการข้างเคียง "ในวันเดียวกัน" ทั้งก่อนและหลัง (dayPrev/daySucc)
+  // เพราะตำแหน่งอาร์เรย์เปลี่ยนได้เมื่อมีการแก้วันที่ของรายการอื่น — ตอนคืนยึดข้างเคียงที่ยังอยู่ในวันนั้นจริง ·
+  // บันทึกอารมณ์ไม่มีความหมายของวัน ใช้ตัวที่อยู่ก่อนหน้า (afterId)
+  function undoEntryFor(kind, list, id, label){
+    const index = list.findIndex(x=>x.id === id);
+    const item = list[index];
+    const sameDay = x => x.date === item.date;
+    return {
+      kind, item, index, afterId: index > 0 ? list[index - 1].id : null, label,
+      dayPrev: kind === 'mood' ? [] : list.slice(0, index).filter(sameDay).map(x=>x.id),
+      daySucc: kind === 'mood' ? [] : list.slice(index + 1).filter(sameDay).map(x=>x.id)
+    };
+  }
+
+  function restoreItem(e){
+    const {list: getList, key} = UNDO_KINDS[e.kind];
+    const list = getList();
+    if(list.some(x=>x.id === e.item.id)){ flashStamp('รายการนี้มีอยู่แล้ว'); return; }
+    let at;
+    if(e.kind === 'mood'){
+      const k = e.afterId != null ? list.findIndex(x=>x.id === e.afterId) : -1;
+      at = k >= 0 ? k + 1 : Math.min(e.index, list.length);
+    } else {
+      // หลังตัวที่อยู่ก่อนหน้าที่ยังอยู่ในวันเดียวกัน (ไล่จากใกล้สุด) · ไม่มี → ก่อนตัวถัดไปที่ยังอยู่ในวันนั้น · ไม่มีเลย → ท้ายอาร์เรย์ (sort จัดตามวันที่)
+      const inDay = new Set(list.filter(x=>x.date === e.item.date).map(x=>x.id));
+      at = -1;
+      for(let i = e.dayPrev.length - 1; i >= 0 && at < 0; i--){
+        if(inDay.has(e.dayPrev[i])) at = list.findIndex(x=>x.id === e.dayPrev[i]) + 1;
+      }
+      for(let i = 0; i < e.daySucc.length && at < 0; i++){
+        if(inDay.has(e.daySucc[i])) at = list.findIndex(x=>x.id === e.daySucc[i]);
+      }
+      if(at < 0) at = list.length;
+    }
+    list.splice(at, 0, e.item);
+    if(e.kind !== 'mood') list.sort((a, b)=> a.date.localeCompare(b.date));   // เสถียร: วันเดียวกันคงลำดับที่คืนไว้
+    safeSet(key, list);
+    markChanged();
+    render();
+    flashStamp('↩ เลิกทำแล้ว');
+  }
+
+  // เลิกทำการนำเข้า: คืนข้อมูลทั้งชุดกลับเป็นก่อนนำเข้า · ถ้ามีอะไรเปลี่ยนหลังนำเข้า (ข้อมูล ราคาตลาด ตั้งค่า สถานะสำรอง หรือจากแท็บอื่น)
+  // ต้องยืนยันก่อน เพราะจะย้อนส่วนนั้นไปด้วย
+  async function undoImport(e){
+    const changed = DATA_KEYS.some(k => readRaw(k) !== e.afterRaw[k]);
+    if(changed){
+      if(!confirm('มีการเปลี่ยนแปลงหลังนำเข้าข้อมูล (ข้อมูล ราคาตลาด ตั้งค่า หรือสถานะการสำรอง) — เลิกทำการนำเข้าจะย้อนข้อมูลทั้งหมดกลับไปก่อนนำเข้า และลบการเปลี่ยนแปลงเหล่านั้นด้วย\nต้องการดำเนินการต่อหรือไม่?')) return false;
+      await afterDialogTick();
+    }
+    // epoch ใหม่: ข้อมูลทั้งชุดถูกแทนที่อีกครั้ง รายการเลิกทำที่ค้างอยู่ (ถ้ามี) อ้างข้อมูลคนละชุดแล้ว
+    const restored = {...e.before, meta: {...e.before.meta, epoch: uid()}};
+    if(!persistAll(stateEntries(restored))){
+      alert('เลิกทำไม่สำเร็จ: พื้นที่เก็บข้อมูลของเบราว์เซอร์ไม่พอหรือเขียนไม่ได้ — ข้อมูลปัจจุบันไม่ถูกเปลี่ยน');
+      return false;
+    }
+    applyState(restored);
+    // ไม่ล้างฟอร์มที่ผู้ใช้กำลังพิมพ์อยู่ — ออกจากโหมดแก้ไขเฉพาะเมื่อรายการที่แก้อยู่ไม่มีในข้อมูลที่คืนมา
+    reconcileEdits();
+    refreshUI();
+    flashStamp('↩ เลิกทำการนำเข้าแล้ว');
+    return true;
+  }
+
+  $('undoBtn').addEventListener('click', async ()=>{
+    const entry = undoStack.pop();      // ดึงออกก่อน: กดซ้ำเร็วๆ ไม่คืนซ้ำ
+    if(!entry) return;
+    if(entry.kind === 'import'){
+      const ok = await undoImport(entry);
+      if(ok === false) undoStack.push(entry);   // ผู้ใช้ยกเลิก/เขียนไม่ได้ — ยังเลิกทำได้ต่อ
+    } else {
+      syncFromStorage();
+      if(entry.epoch !== meta.epoch) flashStamp('เลิกทำไม่ได้ — ข้อมูลถูกนำเข้า/แทนที่จากอีกแท็บไปแล้ว');
+      else restoreItem(entry);
+    }
+    showUndo();
+  });
   // แอปที่ค้างพักไว้ข้ามวัน (PWA บน iPad) ช่องวันที่จะยังเป็นวันเก่า — ถ้าผู้ใช้ยังไม่ได้แตะ ให้เลื่อนเป็นวันนี้
   let defaultDate = todayStr();
   function refreshDefaultDates(){
@@ -1054,6 +1215,7 @@
   }
   // โหมดแก้ไขรายการที่ค่าธรรมเนียมระบบคิดให้: เปลี่ยนจำนวน/ราคาแล้วคิดค่าธรรมเนียมใหม่ลงช่องให้ (ผู้ใช้ยังแก้ทับได้)
   let editingFeeAuto = false;
+  let editBase = null;   // ค่าของรายการ ณ ตอนกดแก้ไข — ใช้แยกว่าผู้ใช้แก้ช่องไหนจริง (ที่เหลือคงค่าล่าสุดในที่เก็บ ไม่ทับงานของอีกแท็บ)
   function syncAutoFeeOnEdit(){
     if(!editingId || !editingFeeAuto || !settings.autoFee) return;
     const fee = autoFeeFor(parseFloat($('f-qty').value), parseFloat($('f-price').value));
@@ -1067,7 +1229,9 @@
   function sanitizeMeta(m){
     m = (m && typeof m === 'object') ? m : {};
     const lb = m.lastBackup && !isNaN(new Date(m.lastBackup)) ? m.lastBackup : null;
-    return {lastBackup: lb, changes: Math.max(0, parseInt(m.changes,10) || 0)};
+    // epoch = รุ่นของชุดข้อมูล เปลี่ยนทุกครั้งที่ข้อมูลทั้งชุดถูกแทนที่ (นำเข้า/เลิกทำนำเข้า) — รายการเลิกทำที่เก็บไว้ก่อนหน้า
+    // อ้างข้อมูลคนละชุด คืนเข้าไปจะปนข้อมูลเก่ากับใหม่ ต้องใช้ epoch ตรวจก่อนคืน (รวมกรณีอีกแท็บเป็นคนนำเข้า)
+    return {lastBackup: lb, changes: Math.max(0, parseInt(m.changes,10) || 0), epoch: typeof m.epoch === 'string' ? m.epoch : ''};
   }
   function markChanged(){
     meta.changes++;
@@ -1158,7 +1322,7 @@
     const payload = {version:2, exportedAt:new Date().toISOString(), trades, moods, dividends, settings, method, marketPrices};
     downloadBlob(new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'}), `trading-journal-backup-${todayStr()}.json`);
     // บันทึกว่าสำรองแล้ว (ผู้ใช้อาจยกเลิกการดาวน์โหลดได้ แต่เบราว์เซอร์ไม่บอก จึงถือว่าสำรองตอนกดปุ่ม)
-    meta = {lastBackup:new Date().toISOString(), changes:0};
+    meta = {...meta, lastBackup:new Date().toISOString(), changes:0};   // คง epoch ไว้
     safeSet(STORE_META, meta);
     renderBackupInfo();
   }
@@ -1230,13 +1394,23 @@
     if(editingId){
       const t = trades.find(x=>x.id===editingId);
       if(t){
-        if(t.date !== date){
+        // merge 3 ทาง: ช่องที่ผู้ใช้ไม่ได้แก้ (ค่าในฟอร์มเท่ากับตอนเริ่มแก้) คงค่าล่าสุดในที่เก็บ — ถ้าอีกแท็บแก้โน้ตของรายการเดียวกัน
+        // ระหว่างที่ฟอร์มนี้เปิดค้าง การบันทึกต้องไม่ย้อนโน้ตนั้นกลับเป็นค่าเก่า · ช่องที่ผู้ใช้แก้ใช้ค่าของผู้ใช้
+        const mine = {date, symbol, side, qty, price, fee, feeAuto, tag, emotion, note};
+        const next = {};
+        let keptRemote = false;
+        for(const k in mine){
+          if(editBase && mine[k] === editBase[k]){ next[k] = t[k]; if(t[k] !== editBase[k]) keptRemote = true; }
+          else next[k] = mine[k];
+        }
+        if(keptRemote) flashStamp('↻ รวมการแก้ไขจากอีกแท็บเข้ากับของคุณแล้ว');
+        if(t.date !== next.date){
           // ลำดับในวันเดียวกันถือตามตำแหน่งในอาร์เรย์ (= ลำดับที่บันทึก) → ย้ายวันที่แล้วถือเป็น "บันทึกล่าสุดของวันใหม่"
           // ไม่งั้นรายการจะค้างตำแหน่งเก่า แล้วไปแทรกต้นวันใหม่/ท้ายวันใหม่แบบเดาไม่ได้ ทำให้ต้นทุน AVG/FIFO ของวันนั้นเปลี่ยน
           trades = trades.filter(x=>x.id !== t.id);
           trades.push(t);
         }
-        Object.assign(t, {date, symbol, side, qty, price, fee, feeAuto, tag, emotion, note});
+        Object.assign(t, next);
       }
       cancelEdit();
     } else {
@@ -1268,6 +1442,7 @@
     // ถ้าค่านั้นระบบคิดให้ (feeAuto) และผู้ใช้เปลี่ยนจำนวน/ราคา → ช่องจะคิดใหม่ให้เอง (ดู syncAutoFeeOnEdit) จนกว่าผู้ใช้จะพิมพ์ค่าเอง
     // รายการเก่าที่บันทึกก่อนมีธง feeAuto: ถ้าค่าตรงกับสูตรอัตโนมัติปัจจุบันพอดี (และเปิดอัตโนมัติอยู่) ถือว่าเป็นค่าอัตโนมัติ
     // เดาเฉพาะรายการเก่าที่ไม่มีธงเลย (undefined) — รายการที่ผู้ใช้พิมพ์ค่าธรรมเนียมเองมีธง false ชัดเจน ต้องไม่ถูกเขียนทับแม้บังเอิญเท่าสูตร
+    editBase = {date:t.date, symbol:t.symbol, side:t.side, qty:t.qty, price:t.price, fee:t.fee, feeAuto:t.feeAuto, tag:t.tag || '', emotion:t.emotion || '', note:t.note || ''};
     editingFeeAuto = t.feeAuto === true
       || (t.feeAuto === undefined && settings.autoFee && t.fee > 0 && Math.abs(t.fee - autoFeeFor(t.qty, t.price)) < 0.005);
     $('f-fee').value = t.fee || 0;
@@ -1284,6 +1459,7 @@
   function exitEditMode(){
     editingId = null;
     editingFeeAuto = false;
+    editBase = null;
     $('addTradeBtn').textContent = '+ บันทึก';
     $('cancelEditBtn').style.display = 'none';
   }
@@ -1309,11 +1485,13 @@
     await afterDialogTick();
     syncFromStorage();
     if(!trades.some(x=>x.id===id)) return;
+    const undo = undoEntryFor('trade', trades, id, `ลบรายการ ${t.symbol} ${t.side==='buy'?'ซื้อ':'ขาย'} ${t.date} แล้ว`);
     if(editingId === id) cancelEdit();
     trades = trades.filter(t=>t.id!==id);
     safeSet(STORE_TRADES, trades);
     markChanged();
     render();
+    pushUndo(undo);
   });
 
   // ===== Dividends =====
@@ -1332,13 +1510,18 @@
       alert('วันที่ไม่ถูกต้อง (ต้องเป็นวันที่ที่มีจริง และปี ค.ศ. 4 หลัก)');
       return;
     }
-    // เว้นช่องภาษีไว้ = หักตามอัตราในตั้งค่า (ค่าเริ่มต้น 10%) · กรอก 0 = ไม่มีภาษี
-    const tax = taxRaw === '' ? round2(gross * settings.divTax / 100) : (parseFloat(taxRaw) || 0);
-    if(tax < 0 || tax > gross){
-      alert(tax < 0 ? 'ภาษีหัก ณ ที่จ่ายต้องไม่ติดลบ' : 'ภาษีหัก ณ ที่จ่ายมากกว่าจำนวนเงินปันผล');
+    if(taxRaw !== '' && (parseFloat(taxRaw) || 0) < 0){
+      alert('ภาษีหัก ณ ที่จ่ายต้องไม่ติดลบ');
       return;
     }
-    syncFromStorage();   // ตรวจครบแล้ว ไม่มี dialog คั่นหลังจุดนี้ — ซิงก์ก่อนเขียนจริง ไม่ทับงานของอีกแท็บ
+    syncFromStorage();   // ไม่มี dialog คั่นระหว่างซิงก์กับเขียน (alert ด้านล่างจบด้วย return ไม่มีการเขียนตามหลัง) — ไม่ทับงานของอีกแท็บ
+    // เว้นช่องภาษีไว้ = หักตามอัตราในตั้งค่า (ค่าเริ่มต้น 10%) · กรอก 0 = ไม่มีภาษี
+    // คิดหลังซิงก์: ถ้าอีกแท็บเพิ่งเปลี่ยนอัตราภาษี ต้องใช้อัตราล่าสุด ไม่ใช่ของแท็บที่ค้างค่าเก่า
+    const tax = taxRaw === '' ? round2(gross * settings.divTax / 100) : (parseFloat(taxRaw) || 0);
+    if(tax > gross){
+      alert('ภาษีหัก ณ ที่จ่ายมากกว่าจำนวนเงินปันผล');
+      return;
+    }
     dividends.push({id:uid(), date, symbol, gross, tax});
     dividends.sort((a,b)=> a.date.localeCompare(b.date));
     safeSet(STORE_DIVS, dividends);
@@ -1358,10 +1541,12 @@
     await afterDialogTick();   // confirm บล็อกหน้านี้ — รอ event loop แล้วซิงก์ซ้ำก่อนเขียน (ดูเหตุผลที่ afterDialogTick)
     syncFromStorage();
     if(!dividends.some(x=>x.id===id)) return;
+    const undo = undoEntryFor('dividend', dividends, id, `ลบปันผล ${d.symbol} ${d.date} แล้ว`);
     dividends = dividends.filter(x=>x.id!==id);
     safeSet(STORE_DIVS, dividends);
     markChanged();
     render();
+    pushUndo(undo);
   });
 
   // ===== Export / Import JSON =====
@@ -1375,7 +1560,7 @@
     const file = e.target.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try{
         syncFromStorage();   // ข้อมูลปัจจุบันที่กำลังจะถูกแทนที่ต้องเป็นล่าสุด (ตัวเลขในกล่องยืนยันจะได้ถูกต้อง)
         const data = JSON.parse(reader.result);
@@ -1399,36 +1584,43 @@
 
         if(!confirm(`นำเข้าข้อมูลนี้จะแทนที่ข้อมูลปัจจุบันทั้งหมด\nไฟล์ที่นำเข้า: ${tr.rows.length} รายการซื้อขาย, ${dv.rows.length} ปันผล, ${md.rows.length} บันทึกอารมณ์${skipped ? ` (ข้าม ${skipped} รายการที่ข้อมูลไม่ถูกต้อง)` : ''}\nปัจจุบัน: ${trades.length} รายการซื้อขาย, ${dividends.length} ปันผล, ${moods.length} บันทึกอารมณ์\nต้องการดำเนินการต่อหรือไม่?`)) return;
 
+        // กล่องยืนยันบล็อกหน้านี้ — รอ event loop แล้วซิงก์ซ้ำ เพื่อให้ "ข้อมูลก่อนนำเข้า" (ใช้เลิกทำ) เป็นของล่าสุดจริง ไม่ใช่สำเนาเก่าของแท็บนี้
+        await afterDialogTick();
+        syncFromStorage();
+        const before = {trades, dividends, moods, settings, method, marketPrices, meta};
+
         // ไฟล์ที่ไม่มี settings (เช่นสำรองรุ่น version 1) → คงค่าตั้งค่าปัจจุบันไว้ ไม่รีเซ็ตเป็นค่าเริ่มต้น
         const newSettings = isObj(data.settings) ? sanitizeSettings(data.settings) : settings;
         const newMethod = data.method === 'AVG' ? 'AVG' : 'FIFO';
         const newPrices = normPrices(data.marketPrices);
         // ข้อมูลตอนนี้ตรงกับไฟล์ที่นำเข้า — ถือว่าสำรองล่าสุด = เวลาที่ส่งออกไฟล์นั้น (ถ้ามี)
-        const newMeta = {lastBackup: (data.exportedAt && !isNaN(new Date(data.exportedAt))) ? data.exportedAt : meta.lastBackup, changes:0};
+        const newMeta = {lastBackup: (data.exportedAt && !isNaN(new Date(data.exportedAt))) ? data.exportedAt : meta.lastBackup, changes:0, epoch: uid()};
 
         // เขียนทุกคีย์แบบทั้งหมดหรือไม่เลย — ถ้าเต็มโควตากลางทาง คืนค่าเดิมทั้งหมดและไม่แตะหน่วยความจำ (ไม่แจ้งสำเร็จมั่วๆ)
-        if(!persistAll([
-          [STORE_TRADES, tr.rows], [STORE_MOODS, md.rows], [STORE_METHOD, newMethod], [STORE_PRICES, newPrices],
-          [STORE_DIVS, dv.rows], [STORE_SETTINGS, newSettings], [STORE_META, newMeta]
-        ])){
+        const imported = {trades: tr.rows, moods: md.rows, method: newMethod, marketPrices: newPrices, dividends: dv.rows, settings: newSettings, meta: newMeta};
+        if(!persistAll(stateEntries(imported))){
           throw new Error('พื้นที่เก็บข้อมูลของเบราว์เซอร์ไม่พอหรือเขียนไม่ได้ — ไม่ได้เปลี่ยนแปลงข้อมูลเดิม');
         }
-        trades = tr.rows; dividends = dv.rows; moods = md.rows;
+        applyState(imported);
         loadNotes.length = 0;   // คำเตือนตอนโหลดเป็นเรื่องของข้อมูลชุดที่เพิ่งถูกแทนที่ — ไม่ควรค้างที่ตราประทับ
-        settings = newSettings; method = newMethod; marketPrices = newPrices; meta = newMeta;
 
         cancelEdit();
         cancelMoodEdit();
         filters = {symbol:'', from:'', to:''};
         $('filterFrom').value=''; $('filterTo').value='';
         refreshUI();   // ปุ่มวิธีคิดต้นทุน + ฟอร์มตั้งค่า + วาดหน้าใหม่
+        const afterRaw = Object.fromEntries(DATA_KEYS.map(k => [k, lastRaw[k]]));   // ทุกคีย์ — ใช้ตรวจว่าหลังนำเข้ามีอะไรเปลี่ยนไหมตอนเลิกทำ
         alert('นำเข้าข้อมูลสำเร็จ' + (skipped ? `\n(ข้าม ${skipped} รายการที่ข้อมูลไม่ถูกต้อง — วันที่ไม่ใช่รูปแบบ YYYY-MM-DD หรือจำนวน/ราคา/ค่าธรรมเนียม/ประเภทผิดปกติ)` : ''));
+        // นำเข้าแทนที่ข้อมูลทั้งหมด — รายการเลิกทำการลบก่อนหน้าอ้างข้อมูลชุดเก่า ล้างทิ้ง แล้วเปิดให้เลิกทำการนำเข้าแทน (60 วินาที)
+        undoStack.length = 0;
+        pushUndo({kind:'import', before, afterRaw, label:'นำเข้าข้อมูลแล้ว (แทนที่ข้อมูลเดิมทั้งหมด)', ttl:60000});
       }catch(err){
         alert('ไม่สามารถนำเข้าข้อมูลได้: ' + err.message);
       } finally {
         $('importFile').value = '';
       }
-    };    reader.readAsText(file);
+    };
+    reader.readAsText(file);
   });
 
   // ===== Filters (กรองมุมมองตาราง/สถิติ/กราฟ — ไม่กระทบการคำนวณต้นทุน FIFO/AVG ซึ่งต้องใช้ประวัติทั้งหมดเสมอ) =====
@@ -1601,11 +1793,13 @@
     await afterDialogTick();   // confirm บล็อกหน้านี้ — รอ event loop แล้วซิงก์ซ้ำก่อนเขียน (ดูเหตุผลที่ afterDialogTick)
     syncFromStorage();
     if(!moods.some(x=>x.id===id)) return;
+    const undo = undoEntryFor('mood', moods, id, `ลบบันทึกอารมณ์ตลาด ${when} แล้ว`);
     if(editingMoodId === id) cancelMoodEdit();
     moods = moods.filter(x=>x.id!==id);
     safeSet(STORE_MOODS, moods);
     markChanged();
     render();
+    pushUndo(undo);
   });
 
   const moodEmoji = {'1':'😱','2':'😟','3':'😐','4':'🙂','5':'🤑'};
