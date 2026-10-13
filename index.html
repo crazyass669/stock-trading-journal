@@ -75,6 +75,8 @@
     color:var(--paper-dim);
     font-size:13px;
   }
+  /* ป้ายเวอร์ชันของแอป (เช่น V1.1 13/10/2026): ตัวเล็กอยู่ท้ายบรรทัดรองของหัวหน้า ขึ้นบรรทัดใหม่เองบนจอแคบ */
+  .ledger-head .ver{font-family:var(--mono);font-size:11px;color:var(--paper-dim);letter-spacing:.5px;white-space:nowrap;}
   .ledger-head .stamp{
     position:absolute; right:24px; top:20px;
     font-family:var(--mono); font-size:11px; color:var(--gold-dim);
@@ -316,6 +318,7 @@
   .group-table{max-height:260px;overflow:auto;}
 
   /* ===== สำรองข้อมูล + ตั้งค่า ===== */
+
   .backup-info{margin:10px 0 0 18px;font-family:var(--mono);font-size:11px;color:var(--paper-dim);position:relative;z-index:1;}
   .backup-info.overdue{color:#e7c26a;}
   .backup-info b{color:var(--paper);font-weight:500;}
@@ -359,7 +362,7 @@
 
   <div class="ledger-head">
     <h1>สมุดบันทึกการเทรด</h1>
-    <p class="sub">Trading Ledger — FIFO / Average Cost · P&amp;L Timeline · Market Mood Journal</p>
+    <p class="sub">Trading Ledger — FIFO / Average Cost · P&amp;L Timeline · Market Mood Journal <span class="ver" id="appVersion"></span></p>
     <div class="stamp" id="statusStamp">กำลังโหลด…</div>
     <div class="ledger-actions">
       <button class="btn ghost small" id="exportBtn">⬇ ส่งออกข้อมูล (JSON)</button>
@@ -680,6 +683,12 @@
   const STORE_DIVS   = 'trading-journal:dividends';
   const STORE_SETTINGS = 'trading-journal:settings';
   const STORE_META   = 'trading-journal:meta';   // {lastBackup: ISO | null, changes: จำนวนการเปลี่ยนแปลงตั้งแต่สำรองล่าสุด}
+
+  // เวอร์ชันของแอป (รูปแบบ เมเจอร์.ไมเนอร์ เช่น 2.1) และ "วันที่ปล่อยเวอร์ชันนั้น" (YYYY-MM-DD)
+  // แก้ "สองค่านี้พร้อมกัน" เฉพาะตอนมีเวอร์ชันใหม่เท่านั้น — วันที่ไม่ใช่วันที่ปัจจุบันและไม่เปลี่ยนเอง · แสดงเป็น "V1.1 13/10/2026"
+  // 1.0 = รุ่นตรึง 2026-10-13 (tag v1.0) · 1.1 = เพิ่มการแสดงเวอร์ชัน/วันที่ (tag v1.1)
+  const APP_VERSION = '1.1';
+  const APP_DATE = '2026-10-13';
 
   const BACKUP_WARN_DAYS = 7;      // เตือนเมื่อไม่ได้สำรองเกินกี่วัน
   const BACKUP_WARN_CHANGES = 20;  // หรือมีการเปลี่ยนแปลงใหม่เกินกี่รายการ
@@ -2380,6 +2389,15 @@
       });
     }
   }
+
+  // แสดง "V<เวอร์ชัน> <วัน/เดือน/ปี ค.ศ.>" เช่น V1.1 13/10/2026 — ต่อข้อความจาก APP_DATE ตรงๆ (ไม่ผ่าน Date/Intl)
+  // จึงไม่เลื่อนวันตามเขตเวลา ไม่ขึ้นกับภาษาของเบราว์เซอร์ · ป้ายนี้เป็นแค่การแสดงผล ห้ามให้ล้มก่อน loadAll()
+  (function renderVersion(){
+    const el = $('appVersion');
+    if(!el) return;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(APP_DATE);
+    el.textContent = `V${APP_VERSION} ${m ? `${m[3]}/${m[2]}/${m[1]}` : APP_DATE}`;
+  })();
 
   loadAll();
 })();

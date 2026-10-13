@@ -23,7 +23,7 @@ def run(name, extra_env=None):
     rows.append((name, ok, passed, failed, extra.group(1) if extra else ""))
     if not ok: print(f"--- {name} output (tail) ---\n" + "\n".join(out.strip().splitlines()[-15:]))
 
-for n in ["test_tj.py", "test_tj2.py", "test_tj3.py", "test_tj4.py", "test_tj5.py", "test_tj6.py", "test_sw.py"]:
+for n in ["test_tj.py", "test_tj2.py", "test_tj3.py", "test_tj4.py", "test_tj5.py", "test_tj6.py", "test_version.py", "test_sw.py"]:
     run(n)
 run("test_diff.py", {"N": "800" if args.quick else "6000"})
 run("test_diff_ui.py", {"N": "15" if args.quick else "60"})
